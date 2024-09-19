@@ -5,7 +5,7 @@ import psutil
 
 
 # ThingSpeak API details
-WRITE_API_KEY = 'YOUR_THINGSPEAK_WRITE_API_KEY'
+WRITE_API_KEY = 'O8W78TIS52FE3FP2'
 THINGSPEAK_URL = 'https://api.thingspeak.com/update'
 
 # Function to get Raspberry Pi CPU temperature
