@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Data Dashboard</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Real-Time Data Dashboard</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <canvas id="cpuTempChart" class="mb-4"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="cpuUsageChart" class="mb-4"></canvas>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <canvas id="memUsageChart" class="mb-4"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="diskUsageChart" class="mb-4"></canvas>
+            </div>
+        </div>
+        <button id="historicalDataBtn" class="btn btn-primary mt-3" onclick="fetchHistoricalData(7)">Last 7 Days Data</button>
+        <div id="historicalData" class="mt-3"></div>
+    </div>
+
+    <script>
+        const charts = {
+            cpuTemp: createChart('cpuTempChart', 'CPU Temperature', 'line'),
+            cpuUsage: createChart('cpuUsageChart', 'CPU Usage', 'line'),
+            memUsage: createChart('memUsageChart', 'Memory Usage', 'line'),
+            diskUsage: createChart('diskUsageChart', 'Disk Usage', 'line')
+        };
+
+        function createChart(canvasId, label, type) {
+            return new Chart(document.getElementById(canvasId).getContext('2d'), {
+                type: type,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4  // Set tension for curved lines
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    // Clear previous data
+                    Object.values(charts).forEach(chart => {
+                        chart.data.labels = [];
+                        chart.data.datasets[0].data = [];
+                    });
+
+                    // Get the last 15 data points
+                    const feeds = data.feeds.slice(-15);
+                    feeds.forEach(feed => {
+                        const time = [[15],[14]]//eed.created_at;
+                        charts.cpuTemp.data.labels.push(time);
+                        charts.cpuTemp.data.datasets[0].data.push(feed.field1); // CPU Temp
+                        charts.cpuUsage.data.labels.push(time);
+                        charts.cpuUsage.data.datasets[0].data.push(feed.field3); // CPU Usage
+                        charts.memUsage.data.labels.push(time);
+                        charts.memUsage.data.datasets[0].data.push(feed.field4); // Memory Usage
+                        charts.diskUsage.data.labels.push(time);
+                        charts.diskUsage.data.datasets[0].data.push(feed.field5); // Disk Usage
+                    });
+
+                    // Update all charts
+                    for (const chart of Object.values(charts)) {
+                        chart.update();
+                    }
+                });
+        }
+
+        function fetchHistoricalData(days) {
+            fetch(`/historical_data/${days}`)
+                .then(response => response.json())
+                .then(data => {
+                    const historicalDiv = document.getElementById('historicalData');
+                    historicalDiv.innerHTML = '<h2>Historical Data</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                });
+        }
+
+        setInterval(fetchData, 100); // Fetch new data every 15 seconds
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
