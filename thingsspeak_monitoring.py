@@ -22,11 +22,11 @@ def get_cpu_usage():
 
 # Function to get memory usage
 def get_memory_usage():
-    return psutil.virtual_memory().percent
+    return psutil.virtual_memory().used
 
 # Function to get disk usage
 def get_disk_usage():
-    return psutil.disk_usage('/').percent
+    return psutil.disk_usage('/').free
 
 # Function to get network I/O stats (bytes sent and received)
 def get_network_io():
@@ -73,4 +73,4 @@ while True:
         print("Failed to upload data")
 
     # Wait for 15 seconds before sending the next data point
-    time.sleep(15)
+    time.sleep(30)

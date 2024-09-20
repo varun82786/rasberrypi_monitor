@@ -76,7 +76,7 @@
                     // Get the last 15 data points
                     const feeds = data.feeds.slice(-15);
                     feeds.forEach(feed => {
-                        const time = [[15],[14]]//eed.created_at;
+                        const time = feed.created_at;
                         charts.cpuTemp.data.labels.push(time);
                         charts.cpuTemp.data.datasets[0].data.push(feed.field1); // CPU Temp
                         charts.cpuUsage.data.labels.push(time);
