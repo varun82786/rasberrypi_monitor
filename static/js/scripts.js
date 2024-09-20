@@ -83,8 +83,32 @@ function extractISTTime(utcTimestamp) {
     return `${hours}:${minutes}:${seconds}`;
 }
 
+
+function updateUptime(uptimeHours) {
+    const hours = Math.floor(uptimeHours);
+    const minutes = Math.floor((uptimeHours - hours) * 60);
+    const seconds = Math.floor(((uptimeHours - hours) * 60 - minutes) * 60);
+
+    const formattedUptime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    document.getElementById('uptime').innerHTML = `${formattedUptime}`;
+}
+
+function fetchData_uptime() {
+    
+    fetch('/data')  // Fetch data from server endpoint
+        .then(response => response.json())
+        .then(data => {
+            const latestFeed = data.feeds[data.feeds.length - 1];
+            const uptime = latestFeed.field8;  // Assuming field8 contains the uptime in hours
+            updateUptime(uptime);
+        });
+}
+
 // Fetch data initially
+fetchData_uptime()
 fetchData();
 
 // Fetch new data every 15 seconds
-setInterval(fetchData, 100);
+setInterval(fetchData_uptime,1)
+setInterval(fetchData, 1);
+
