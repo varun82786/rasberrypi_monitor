@@ -104,11 +104,22 @@ function fetchData_uptime() {
         });
 }
 
-// Fetch data initially
-fetchData_uptime()
-fetchData();
+function init_caller(){
+    // Fetch data initially
+    fetchData_uptime()
+    fetchData();
 
-// Fetch new data every 15 seconds
-setInterval(fetchData_uptime,1)
-setInterval(fetchData, 1);
+}
+
+function preriodic_caller(){
+    // Fetch data preriodically
+    fetchData_uptime()
+    fetchData();
+}
+
+init_caller()
+
+// Fetch new data every 15(15000) seconds
+setInterval(preriodic_caller,5000)
+
 
