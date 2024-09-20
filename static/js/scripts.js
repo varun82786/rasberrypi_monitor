@@ -16,11 +16,12 @@ function createChart(canvasId, label, type) {
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 2,
                 fill: false,
-                tension: 0.4  // Set tension for curved lines
+                tension: 0.4  // Curved lines
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,  // Ensure charts are responsive
             scales: {
                 y: {
                     beginAtZero: true
@@ -71,22 +72,19 @@ function fetchHistoricalData(days) {
 }
 
 function extractISTTime(utcTimestamp) {
-    // Convert the UTC timestamp to a Date object
     const utcDate = new Date(utcTimestamp);
-
-    // IST offset in milliseconds (UTC + 5:30)
     const istOffset = 5.5 * 60 * 60 * 1000;
-    
-    // Create a new Date object for IST
     const istDate = new Date(utcDate.getTime() + istOffset);
 
-    // Extract the time components (hours, minutes, seconds)
     const hours = String(istDate.getUTCHours()).padStart(2, '0');
     const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
     const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
 
-    // Return the formatted IST time in HH:MM:SS
     return `${hours}:${minutes}:${seconds}`;
 }
 
-setInterval(fetchData, 15000); // Fetch new data every 15 seconds
+// Fetch data initially
+fetchData();
+
+// Fetch new data every 15 seconds
+setInterval(fetchData, 100);
