@@ -22,11 +22,11 @@ def get_cpu_usage():
 
 # Function to get memory usage
 def get_memory_usage():
-    return psutil.virtual_memory().used
+    return psutil.virtual_memory().used / (1024 * 1024 * 1024)
 
 # Function to get disk usage
 def get_disk_usage():
-    return psutil.disk_usage('/').free
+    return psutil.disk_usage('/').free / (1024 * 1024 * 1024)
 
 # Function to get network I/O stats (bytes sent and received)
 def get_network_io():

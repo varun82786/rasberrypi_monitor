@@ -76,7 +76,7 @@
                     // Get the last 15 data points
                     const feeds = data.feeds.slice(-15);
                     feeds.forEach(feed => {
-                        const time = feed.created_at;
+                        const time = extractISTTime(feed.created_at);
                         charts.cpuTemp.data.labels.push(time);
                         charts.cpuTemp.data.datasets[0].data.push(feed.field1); // CPU Temp
                         charts.cpuUsage.data.labels.push(time);
@@ -102,6 +102,24 @@
                     historicalDiv.innerHTML = '<h2>Historical Data</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
                 });
         }
+        function extractISTTime(utcTimestamp) {
+                // Convert the UTC timestamp to a Date object
+                const utcDate = new Date(utcTimestamp);
+
+                // IST offset in milliseconds (UTC + 5:30)
+                const istOffset = 5.5 * 60 * 60 * 1000;
+                
+                // Create a new Date object for IST
+                const istDate = new Date(utcDate.getTime() + istOffset);
+
+                // Extract the time components (hours, minutes, seconds)
+                const hours = String(istDate.getUTCHours()).padStart(2, '0');
+                const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
+
+                // Return the formatted IST time in HH:MM:SS
+                return `${hours}:${minutes}:${seconds}`;
+            }
 
         setInterval(fetchData, 100); // Fetch new data every 15 seconds
     </script>
