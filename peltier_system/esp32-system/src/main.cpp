@@ -60,10 +60,10 @@ void loop() {
         sendDataToRaspberryPi();
 
         // Stop sending data after 30 seconds
-        if (millis() - startTime >= dataSendingDuration) {
-            isSendingData = false;
-            Serial.println("Finished sending data to Raspberry Pi.");
-        }
+        // if (millis() - startTime >= dataSendingDuration) {
+        //     isSendingData = false;
+        //     Serial.println("Finished sending data to Raspberry Pi.");
+        // }
     }
 
     delay(1000);  // Adjust delay as necessary

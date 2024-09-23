@@ -32,8 +32,8 @@ def check_and_send_conditions():
         print("CPU usage threshold exceeded, sending trigger to ESP32...")
         send_data_to_esp32(cpu_usage, cpu_temp)
     
-    if cpu_temp > cpu_usage_threshold:
-        print("CPU usage threshold exceeded, sending trigger to ESP32...")
+    if cpu_temp > cpu_temp_threshold:
+        print("CPU temp threshold exceeded, sending trigger to ESP32...")
         send_data_to_esp32(cpu_usage, cpu_temp)
 
 
