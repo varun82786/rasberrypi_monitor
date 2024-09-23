@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ field | title }} Graph</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/graph.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">{{ field | title }} Data</h1>
+        
+        <!-- Graph area -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <canvas id="graphCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Time range buttons in a responsive grid layout -->
+        <div class="row justify-content-center mt-3 mb-3">
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('live')">Live</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('30min')">30 Min</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('1hr')">1 Hour</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('3hrs')">3 Hours</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('6hrs')">6 Hours</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('12hrs')">12 Hours</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('24hrs')">24 Hours</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('48hrs')">48 Hours</button>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2 mb-2">
+                <button class="btn btn-secondary btn-block" onclick="fetchData_period('72hrs')">72 Hours</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/graph.js"></script>
+</body>
+</html>

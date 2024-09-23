@@ -62,14 +62,7 @@ function fetchData() {
         });
 }
 
-function fetchHistoricalData(days) {
-    fetch(`/historical_data/${days}`)
-        .then(response => response.json())
-        .then(data => {
-            const historicalDiv = document.getElementById('historicalData');
-            historicalDiv.innerHTML = '<h2>Historical Data</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
-        });
-}
+
 
 function extractISTTime(utcTimestamp) {
     const utcDate = new Date(utcTimestamp);

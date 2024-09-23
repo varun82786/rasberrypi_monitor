@@ -21,22 +21,32 @@ def data():
     data = response.json()
     return jsonify(data)
 
+@app.route('/graph/<field>')
+def graph(field):
+    return render_template('graph.html', field=field)
 
-@app.route('/historical_data/<days>')
-def historical_data(days):
-    # Fetch historical data from ThingSpeak
-    response = requests.get(THINGSPEAK_URL, params={'api_key': READ_API_KEY, 'results': 8000})
+@app.route('/historic_data/<field>/<period>')
+def historic_data(field, period):
+    # Fetch data based on the selected time range (period)
+    results_map = {
+        'live': 15,
+        '30min': 30,
+        '1hr': 60,
+        '3hrs': 180,
+        '6hrs': 360,
+        '12hrs': 720,
+        '24hrs': 1440,
+        '48hrs': 2880,
+        '72hrs': 4320
+    }
+    results = results_map.get(period, 15)  # Default to 'live' if invalid period
+
+    response = requests.get(THINGSPEAK_URL, params={'api_key': READ_API_KEY, 'results': results})
     data = response.json()
-    df = pd.DataFrame(data['feeds'])
+   
+    return jsonify(data)
 
-    # Convert the timestamp to datetime
-    df['created_at'] = pd.to_datetime(df['created_at'])
-    # Filter data based on the requested days
-    start_date = datetime.now() - timedelta(days=int(days))
-    df = df[df['created_at'] >= start_date]
 
-    # Convert to JSON format
-    return jsonify(df.to_dict(orient='records'))
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=80, debug=True)

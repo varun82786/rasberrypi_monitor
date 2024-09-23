@@ -1,0 +1,61 @@
+/* Custom styling for the Real-Time Data Dashboard */
+
+body {
+    background-color: #000000;
+}
+
+h1 {
+    font-family: 'Orbitron', sans-serif;
+    color: #ddff00;  /* Sci-fi greenish-blue color */
+    font-size: 3rem;  /* Larger font size */
+    text-shadow: 0 0 15px rgba(255, 255, 0, 0.8), 0 0 30px rgba(238, 255, 0, 0.5);  /* Glowing effect */
+    margin-bottom: 20px;
+}
+
+.card {
+    background-color: #e4ffdb;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.card-body {
+    padding: 1rem;
+}
+
+canvas {
+    /* Ensure the canvas fills the card */
+    width: 100% !important;
+    height: auto !important;
+}
+
+.btn-primary {
+    background-color: #36ffef;
+    border-color: #36ffef;
+}
+
+.btn-primary:hover {
+    background-color: #35cec1;
+    border-color: #35cec1;
+}
+
+
+/* Apply sci-fi font and effects to the uptime */
+.sci-fi {
+    font-family: 'Orbitron', sans-serif;
+    color: #00ffcc;  /* Sci-fi greenish-blue color */
+    font-size: 3rem;  /* Larger font size */
+    text-shadow: 0 0 15px rgba(0, 255, 204, 0.8), 0 0 30px rgba(0, 255, 204, 0.5);  /* Glowing effect */
+    margin-bottom: 20px;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #121212;  /* Dark background for sci-fi feel */
+    color: #ffffff;  /* White text color */
+}
+
+h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
