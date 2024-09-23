@@ -42,7 +42,7 @@ void setup() {
 void loop() {
     server.handleClient();  // Handle incoming client requests
 
-    // You can call sendDataToRaspberryPi periodically or based on conditions
+    sendDataToRaspberryPi(); // You can call sendDataToRaspberryPi periodically or based on conditions
     delay(10000);  // Send data every 10 seconds
 }
 
