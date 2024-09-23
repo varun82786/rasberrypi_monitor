@@ -1,9 +1,56 @@
 from flask import Flask, request, jsonify
+import psutil  # To get system performance stats
 import requests
+import time
+import schedule  # For scheduling periodic checks
 
 app = Flask(__name__)
 
 ESP32_IP = "http://192.168.31.172"  # Replace with ESP32 IP address
+
+cpu_usage_threshold = 80.0  # CPU usage threshold to trigger communication
+cpu_temp_threshold = 40
+check_interval = 5  # Check conditions every 5 seconds
+
+# will implement in seperate file later
+def get_cpu_usage():
+    return psutil.cpu_percent(interval=1)
+
+def get_cpu_temperature():
+    # Example function for CPU temp (implement based on your OS)
+    temp = psutil.sensors_temperatures().get('cpu_thermal', [])[0].current
+    return temp
+
+def check_and_send_conditions():
+    cpu_usage = get_cpu_usage()
+    cpu_temp = get_cpu_temperature()
+    
+    print(f"CPU Usage: {cpu_usage}%, CPU Temp: {cpu_temp}°C")
+
+    # If CPU usage exceeds threshold, send data to ESP32
+    if cpu_usage > cpu_usage_threshold:
+        print("CPU usage threshold exceeded, sending trigger to ESP32...")
+        send_data_to_esp32(cpu_usage, cpu_temp)
+    
+    if cpu_temp > cpu_usage_threshold:
+        print("CPU usage threshold exceeded, sending trigger to ESP32...")
+        send_data_to_esp32(cpu_usage, cpu_temp)
+
+
+def send_data_to_esp32(cpu_usage, cpu_temp):
+    try:
+        payload = {
+            "sensor": "Raspberry Pi",
+            "cpu_usage": cpu_usage,
+            "cpu_temperature": cpu_temp
+        }
+        response = requests.post(f"{ESP32_IP}/data", json=payload)
+        if response.status_code == 200:
+            print("Response from ESP32:", response.json())
+        else:
+            print("Failed to send data to ESP32.")
+    except Exception as e:
+        print(f"Error sending data to ESP32: {e}")
 
 @app.route('/')
 def index():
@@ -13,32 +60,23 @@ def index():
 def receive_data():
     data = request.json
     print("Data received from ESP32:", data)
-    # Respond with a message
     response = {"message": "Data received successfully!"}
     return jsonify(response)
 
-@app.route('/send_data_to_esp32', methods=['POST'])
-def send_data_to_esp32():
-    try:
-        # Example payload data you want to send to ESP32
-        payload = {
-            "sensor": "Raspberry Pi",
-            "temperature": 30.0  # Replace with actual sensor data or any information
-        }
-        
-        # Send the POST request to ESP32
-        response = requests.post(f"{ESP32_IP}/data", json=payload)
-        
-        # Log the response from ESP32
-        if response.status_code == 200:
-            print("Response from ESP32:", response.json())
-            return jsonify({"status": "Data sent to ESP32", "response": response.json()}), 200
-        else:
-            print("Failed to send data to ESP32.")
-            return jsonify({"status": "Failed to send data"}), response.status_code
-    except Exception as e:
-        print(f"Error sending data to ESP32: {e}")
-        return jsonify({"status": "Error", "message": str(e)}), 500
+def schedule_checks():
+    # Schedule the CPU usage check to run every 'check_interval' seconds
+    schedule.every(check_interval).seconds.do(check_and_send_conditions)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)  # Expose server on all interfaces
+    # Start the Flask server in a separate thread if needed
+    # or run the server in the background so that the scheduler can run
+    from threading import Thread
+    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000))
+    flask_thread.start()
+
+    # Run the condition checks at regular intervals
+    schedule_checks()
