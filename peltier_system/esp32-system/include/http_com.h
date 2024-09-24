@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
-
+#if 0
 const char* ssid = "your_SSID";               // Your Wi-Fi SSID
 const char* password = "your_PASSWORD";        // Your Wi-Fi password
 const char* serverUrl = "http://your_raspberry_pi_ip:5000";  // Raspberry Pi IP address
@@ -64,3 +64,4 @@ void sendDataToRaspberryPi() {
         http.end();
     }
 }
+#endif
