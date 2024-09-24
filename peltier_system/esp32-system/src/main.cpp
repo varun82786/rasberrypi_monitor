@@ -46,18 +46,22 @@ void loop() {
     server.handleClient();  // Handle incoming client requests
     
     // Simulate sensor reading
-    sensorData += 0.01;  // Change sensor data dynamically for testing
+    sensorData += 0.09;  // Change sensor data dynamically for testing
+    Serial.println(" simulated value of temp sensor " + String(sensorData));
     
     // Check if condition is met (temperature exceeds threshold)
     if (sensorData > sensorThreshold && !isSendingData) {
         isSendingData = true;
         startTime = millis();  // Start the timer
         Serial.println("Condition met, starting to send data to Raspberry Pi...");
+        
     }
 
     // Send data if condition is met
     if (isSendingData) {
         sendDataToRaspberryPi();
+        sensorData = 10.0;  // resetting the sensor value simulation purpose
+        isSendingData = false;
 
         // Stop sending data after 30 seconds
         // if (millis() - startTime >= dataSendingDuration) {
