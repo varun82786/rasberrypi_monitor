@@ -4,7 +4,7 @@
 
 void handleSensorData(float &sensorData, float sensorThreshold, bool &isSendingData, unsigned long &startTime) {
     // Simulate sensor reading
-    sensorData += 0.09;  // Change sensor data dynamically for testing
+    sensorData += 0.1;  // Change sensor data dynamically for testing
     Serial.println("Simulated value of temp sensor: " + String(sensorData));
     
     // Check if condition is met (temperature exceeds threshold)

@@ -5,6 +5,10 @@
 #include "wifi_manager.h"
 #include "sensor_manager.h"
 #include "secrets.h"
+#include "data_processor.h"
+
+// extern variables 
+RpiMetrics RpiData;
 
 //PIN Declarations 
 #define SMPS_PIN 2 // GPIO pin on ESP32
@@ -27,6 +31,7 @@ unsigned long startTime = 0;
 
 // Variables
 float RoomTemp = 0;
+
 
 DHTSensor serverroom(DHT_PIN, DHTSENSORTYPE);
 Relay SMPS(SMPS_PIN);
@@ -63,6 +68,15 @@ void loop() {
 
     float RoomTemp = serverroom.readTemperature();
     Serial.println(RoomTemp);
+
+    Serial.println(RpiData.cpu_temperature);
+    if (RpiData.cpu_usage == 0.0){
+        SMPS.off();
+    }
+    else{
+        SMPS.on();
+    }
+
     
     delay(1000);
 }
