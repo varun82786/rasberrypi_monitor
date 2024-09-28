@@ -12,10 +12,10 @@ void Relay::init() {
 
 // Turn relay on
 void Relay::on() {
-    digitalWrite(pin, HIGH);
+    digitalWrite(pin, LOW);
 }
 
 // Turn relay off
 void Relay::off() {
-    digitalWrite(pin, LOW);
+    digitalWrite(pin, HIGH);
 }
