@@ -10,7 +10,7 @@ ESP32_IP = "http://192.168.31.172"  # Replace with ESP32 IP address
 
 cpu_usage_threshold = 10  # CPU usage threshold to trigger communication
 cpu_temp_threshold = 34
-check_interval = 30  # Check conditions every 5 seconds
+check_interval = 5  # Check conditions every 5 seconds
 
 # will implement in seperate file later
 def get_cpu_usage():
@@ -28,13 +28,16 @@ def check_and_send_conditions():
     print(f"CPU Usage: {cpu_usage}%, CPU Temp: {cpu_temp}°C")
 
     # If CPU usage exceeds threshold, send data to ESP32
-    if cpu_usage > cpu_usage_threshold:
-        print("CPU usage threshold exceeded, sending trigger to ESP32...")
-        send_data_to_esp32(cpu_usage, cpu_temp)
+    # if cpu_usage > cpu_usage_threshold:
+    #     print("CPU usage threshold exceeded, sending trigger to ESP32...")
+    #     send_data_to_esp32(cpu_usage, cpu_temp)
     
-    if cpu_temp > cpu_temp_threshold:
-        print("CPU temp threshold exceeded, sending trigger to ESP32...")
-        send_data_to_esp32(cpu_usage, cpu_temp)
+    # if cpu_temp > cpu_temp_threshold:
+    #     print("CPU temp threshold exceeded, sending trigger to ESP32...")
+    #     send_data_to_esp32(cpu_usage, cpu_temp)
+
+    print("sending trigger to ESP32...")
+    send_data_to_esp32(cpu_usage, cpu_temp)
 
 
 def send_data_to_esp32(cpu_usage, cpu_temp):
