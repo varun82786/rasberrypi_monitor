@@ -11,7 +11,10 @@
 RpiMetrics RpiData;
 
 //PIN Declarations 
-#define SMPS_PIN 2 // GPIO pin on ESP32
+#define SMPS_PIN 21 // GPIO pin on ESP32
+#define RPI_FAN_PIN 19
+#define SMPS_FAN_PIN 18
+#define PELITIER_PIN 5
 #define DHT_PIN 15
 #define DHTSENSORTYPE  DHT11
 
@@ -34,15 +37,30 @@ float RoomTemp = 0;
 
 
 DHTSensor serverroom(DHT_PIN, DHTSENSORTYPE);
+
 Relay SMPS(SMPS_PIN);
+Relay SMPS_FAN(SMPS_FAN_PIN);
+Relay RPI_FAN(RPI_FAN_PIN);
+Relay PELITIER(PELITIER_PIN);
 
 
 void setup() {
     Serial.begin(115200);
 
-    serverroom.init();
+    serverroom.init(); 
+    
     SMPS.init();
-    SMPS.on(); // turn on cooling system on esp32 boot
+    SMPS.off();
+    
+    SMPS_FAN.init();
+    SMPS_FAN.off();
+
+    RPI_FAN.init();
+    RPI_FAN.off();
+
+    /*Pelitier is not implemented */
+    PELITIER.init();
+    PELITIER.off();
 
 
     initWiFi(ssid, password);
@@ -71,10 +89,16 @@ void loop() {
 
     Serial.println(RpiData.cpu_temperature);
     if (RpiData.cpu_usage == 0.0){
-        SMPS.off();
+        SMPS.on();
+        SMPS_FAN.on();
+        RPI_FAN.on();
+        PELITIER.on();
     }
     else{
-        SMPS.on();
+        SMPS.off();
+        SMPS_FAN.off();
+        RPI_FAN.off();
+        PELITIER.off();
     }
 
     
