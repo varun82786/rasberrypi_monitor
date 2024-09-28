@@ -12,8 +12,8 @@ RpiMetrics RpiData;
 
 //PIN Declarations 
 #define SMPS_PIN 2 // GPIO pin on ESP32
-#define DHT_PIN 4
-#define DHTSENSORTYPE  DHT22
+#define DHT_PIN 15
+#define DHTSENSORTYPE  DHT11
 
 #define ON true
 #define OFF false
