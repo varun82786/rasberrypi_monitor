@@ -11,11 +11,11 @@
 RpiMetrics RpiData;
 
 //PIN Declarations 
-#define SMPS_PIN 21 // GPIO pin on ESP32
-#define RPI_FAN_PIN 19
-#define SMPS_FAN_PIN 18
-#define PELITIER_PIN 5
-#define DHT_PIN 15
+#define SMPS_PIN 21     // brown jwire
+#define RPI_FAN_PIN 19  // RED jwire
+#define SMPS_FAN_PIN 18 // orange jwire
+#define PELITIER_PIN 5  // yellow jwire
+#define DHT_PIN 15      // white jwire
 #define DHTSENSORTYPE  DHT11
 
 #define ON true
@@ -28,7 +28,7 @@ boolean DHT_Status = OFF;
 
 // Sensor and communication variables
 float sensorData = 25.0;            // Simulate sensor data (e.g., temperature)
-float sensorThreshold = 28.0;       // Example threshold to trigger communication
+float sensorThreshold = 20.0;       // Example threshold to trigger communication
 bool isSendingData = false;
 unsigned long startTime = 0;
 
@@ -88,7 +88,7 @@ void loop() {
     Serial.println(RoomTemp);
 
     Serial.println(RpiData.cpu_temperature);
-    if (RpiData.cpu_usage == 0.0){
+    if (RpiData.cpu_usage > 0.5){
         SMPS.on();
         SMPS_FAN.on();
         RPI_FAN.on();
