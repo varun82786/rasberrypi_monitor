@@ -43,6 +43,19 @@ float CpuUsage = 50; // intital value is set to starts cooling sys
 int sys_uptime = 0;  // counter to calculate the sys_uptime
 int smps_timer = 1;  // counter for the smps on time
 int smps_ideal_timer = 1; // counter for the smps off time
+int smps_fan_timer = 1;
+int smps_fan_off_timer = 1;
+
+// variables for delays and other time purpose
+unsigned long oneSecond = 1000;
+unsigned long fiveSeconds = 5 * 1000;
+unsigned long tenSeconds = 10 * 1000;
+unsigned long halfMinute = 1 * 30 * 1000;
+unsigned long oneMinutes = 1 * 60 * 1000;
+unsigned long fiveMinutes = 5 * 60 * 1000;
+unsigned long tenMinutes = 10 * 60 * 1000;
+unsigned long fifteenMinutes = 15 * 60 * 1000;
+
 
 DHTSensor serverroom(DHT_PIN, DHTSENSORTYPE);
 
@@ -74,7 +87,7 @@ void setup() {
     initWiFi(ssid, password);
     startWebServer();
 
-    delay(10000);
+    delay(fiveSeconds);
     SMPS_FAN.off();
     
 
@@ -89,7 +102,7 @@ void loop() {
 
     if (!nightMode){
 
-        if(CpuTemp > 45 || CpuUsage >= 10 )
+        if(CpuTemp > 49 || CpuUsage >= 10 )
         {
 
             if (!SMPS.Status())
@@ -103,13 +116,34 @@ void loop() {
             // implement counter for smps fan
 
         }
-        else if (CpuTemp < 36 )
+        else if (CpuTemp < 38 )
         {
             RPI_FAN.off();
-            delay(10000);
+            delay(tenSeconds);
+            SMPS.off();
             SMPS.off();
 
         }
+
+
+        if(smps_timer > fiveMinutes || sys_uptime > tenMinutes & smps_fan_off_timer == 1)
+        {
+            SMPS_FAN.on();
+            smps_fan_timer++;
+            
+        }
+        else if (smps_fan_timer > fiveMinutes)
+        {
+            SMPS_FAN.off();
+            smps_fan_off_timer++;
+        }
+
+        if(smps_fan_off_timer > fifteenMinutes)
+        {
+           smps_fan_off_timer = 1;
+        }
+        
+        
     }
     else
     {
@@ -131,7 +165,7 @@ void loop() {
 
     sys_uptime++;
 
-    if(sys_uptime % 30 == 0){
+    if(sys_uptime % halfMinute == 0){
         sendDataToRaspberryPi(serverUrl, RoomTemp);
     }
 
@@ -143,12 +177,12 @@ void loop() {
     else{
         smps_timer = 1;
         smps_ideal_timer++;
-        Serial.println("SMPS on for " + String(smps_ideal_timer) + " sec");
+        Serial.println("SMPS off for " + String(smps_ideal_timer) + " sec");
     }
     
 
     
-    delay(1000);
+    delay(oneSecond);
 
     // night mode
 }
