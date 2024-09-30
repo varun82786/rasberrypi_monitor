@@ -4,6 +4,7 @@
 class Relay {
 private:
     unsigned char pin;
+    bool Relay_State;
 
 public:
     // Constructor
@@ -13,6 +14,7 @@ public:
     void init();
     void on();
     void off();
+    bool Status();
 };
 
 #endif

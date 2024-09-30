@@ -13,9 +13,26 @@ void Relay::init() {
 // Turn relay on
 void Relay::on() {
     digitalWrite(pin, LOW);
+    Relay_State = true;
+    Status(); 
 }
 
 // Turn relay off
 void Relay::off() {
     digitalWrite(pin, HIGH);
+    Relay_State = false;
+    Status(); 
+}
+
+bool Relay::Status() {
+
+    if (Relay_State){
+        return true;
+    }
+    else if (!Relay_State)
+    {
+        return false;
+    }
+    Serial.println("contorl reaches to end");
+   return 0; 
 }

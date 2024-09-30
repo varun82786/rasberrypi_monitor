@@ -20,6 +20,7 @@ RpiMetrics RpiData;
 
 #define ON true
 #define OFF false
+#define nightMode false
 
 // FLAG Declarations
 boolean SMPS_Status = OFF;
@@ -32,9 +33,16 @@ float sensorThreshold = 20.0;       // Example threshold to trigger communicatio
 bool isSendingData = false;
 unsigned long startTime = 0;
 
+
+
 // Variables
 float RoomTemp = 0;
-
+float RoomHumid = 0;
+float CpuTemp = 60;  // intital value is set to starts cooling sys
+float CpuUsage = 50; // intital value is set to starts cooling sys
+int sys_uptime = 0;  // counter to calculate the sys_uptime
+int smps_timer = 1;  // counter for the smps on time
+int smps_ideal_timer = 1; // counter for the smps off time
 
 DHTSensor serverroom(DHT_PIN, DHTSENSORTYPE);
 
@@ -50,13 +58,13 @@ void setup() {
     serverroom.init(); 
     
     SMPS.init();
-    SMPS.off();
+    SMPS.on();
     
     SMPS_FAN.init();
-    SMPS_FAN.off();
+    SMPS_FAN.on();
 
     RPI_FAN.init();
-    RPI_FAN.off();
+    RPI_FAN.on();
 
     /*Pelitier is not implemented */
     PELITIER.init();
@@ -66,41 +74,82 @@ void setup() {
     initWiFi(ssid, password);
     startWebServer();
 
-
-
+    delay(10000);
+    SMPS_FAN.off();
     
+
+
+        
 }
 
 void loop() {
 
+
     server.handleClient();  // Handle incoming client requests
 
-    handleSensorData(sensorData, sensorThreshold, isSendingData, startTime);
+    if (!nightMode){
+
+        if(CpuTemp > 45 || CpuUsage >= 10 )
+        {
+
+            if (!SMPS.Status())
+            {
+                SMPS.on();
+            }
+            if (!RPI_FAN.Status())
+            {
+                RPI_FAN.on();
+            }
+            // implement counter for smps fan
+
+        }
+        else if (CpuTemp < 36 )
+        {
+            RPI_FAN.off();
+            delay(10000);
+            SMPS.off();
+
+        }
+    }
+    else
+    {
+        SMPS.on();
+        RPI_FAN.on();
+        SMPS_FAN.on();
+    }
     
-    // Send data if condition is met
-    if (isSendingData) {
-        sendDataToRaspberryPi(serverUrl, sensorData);
-        sensorData = 10.0;  // Reset sensor value for simulation
-        isSendingData = false;
+    
+    
+
+    
+
+
+    RoomTemp = serverroom.readTemperature();
+    RoomHumid = serverroom.readHumidity();
+    CpuTemp  = RpiData.cpu_temperature;
+    CpuUsage = RpiData.cpu_usage;
+
+    sys_uptime++;
+
+    if(sys_uptime % 30 == 0){
+        sendDataToRaspberryPi(serverUrl, RoomTemp);
     }
 
-    float RoomTemp = serverroom.readTemperature();
-    Serial.println(RoomTemp);
-
-    Serial.println(RpiData.cpu_temperature);
-    if (RpiData.cpu_usage > 0.5){
-        SMPS.on();
-        SMPS_FAN.on();
-        RPI_FAN.on();
-        PELITIER.on();
+    if(SMPS.Status()){
+        smps_ideal_timer = 1;
+        smps_timer++;
+        Serial.println("SMPS on for " + String(smps_timer) + " sec");
     }
     else{
-        SMPS.off();
-        SMPS_FAN.off();
-        RPI_FAN.off();
-        PELITIER.off();
+        smps_timer = 1;
+        smps_ideal_timer++;
+        Serial.println("SMPS on for " + String(smps_ideal_timer) + " sec");
     }
+    
 
     
     delay(1000);
+
+    // night mode
 }
+

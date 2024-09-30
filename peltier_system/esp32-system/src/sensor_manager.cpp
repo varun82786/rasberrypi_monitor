@@ -4,7 +4,7 @@
 
 void handleSensorData(float &sensorData, float sensorThreshold, bool &isSendingData, unsigned long &startTime) {
     // Simulate sensor reading
-    sensorData += 0.1;  // Change sensor data dynamically for testing
+    sensorData += 1;  // Change sensor data dynamically for testing
     Serial.println("Simulated value of temp sensor: " + String(sensorData));
     
     // Check if condition is met (temperature exceeds threshold)
@@ -15,12 +15,12 @@ void handleSensorData(float &sensorData, float sensorThreshold, bool &isSendingD
     }
 }
 
-void sendDataToRaspberryPi(const char* serverUrl, float sensorData) {
+void sendDataToRaspberryPi(const char* serverUrl, float Data) {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
         http.begin(String(serverUrl) + "/data");  // POST request to Raspberry Pi
 
-        String jsonPayload = "{\"sensor\":\"ESP32\",\"temperature\":" + String(sensorData) + "}";
+        String jsonPayload = "{\"sensor\":\"ESP32\",\"temperature\":" + String(Data) + "}";
         http.addHeader("Content-Type", "application/json");
 
         int httpResponseCode = http.POST(jsonPayload);
