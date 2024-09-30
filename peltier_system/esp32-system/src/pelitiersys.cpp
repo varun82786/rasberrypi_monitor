@@ -20,7 +20,7 @@ RpiMetrics RpiData;
 
 #define ON true
 #define OFF false
-#define nightMode false
+
 
 // FLAG Declarations
 boolean SMPS_Status = OFF;
@@ -32,6 +32,7 @@ float sensorData = 25.0;            // Simulate sensor data (e.g., temperature)
 float sensorThreshold = 20.0;       // Example threshold to trigger communication
 bool isSendingData = false;
 unsigned long startTime = 0;
+bool nightMode = false; 
 
 
 
@@ -150,6 +151,7 @@ void loop() {
         SMPS.on();
         RPI_FAN.on();
         SMPS_FAN.on();
+        Serial.println("Night Mode on");
     }
     
     
@@ -162,6 +164,7 @@ void loop() {
     RoomHumid = serverroom.readHumidity();
     CpuTemp  = RpiData.cpu_temperature;
     CpuUsage = RpiData.cpu_usage;
+    nightMode = RpiData.night_mode;
 
     sys_uptime++;
 

@@ -4,6 +4,9 @@ import requests
 import time
 import schedule  # For scheduling periodic checks
 
+#user def modules
+from operations import *
+
 app = Flask(__name__)
 
 ESP32_IP = "http://192.168.31.172"  # Replace with ESP32 IP address
@@ -24,6 +27,7 @@ def get_cpu_temperature():
 def check_and_send_conditions():
     cpu_usage = get_cpu_usage()
     cpu_temp = get_cpu_temperature()
+    night_mode = is_night()
     
     print(f"CPU Usage: {cpu_usage}%, CPU Temp: {cpu_temp}°C")
 
@@ -37,15 +41,16 @@ def check_and_send_conditions():
     #     send_data_to_esp32(cpu_usage, cpu_temp)
 
     print("sending trigger to ESP32...")
-    send_data_to_esp32(cpu_usage, cpu_temp)
+    send_data_to_esp32(cpu_usage, cpu_temp, night_mode)
 
 
-def send_data_to_esp32(cpu_usage, cpu_temp):
+def send_data_to_esp32(cpu_usage, cpu_temp, night_mode):
     try:
         payload = {
             "sensor": "Raspberry Pi",
             "cpu_usage": cpu_usage,
-            "cpu_temperature": cpu_temp
+            "cpu_temperature": cpu_temp,
+            "night_mode": night_mode
         }
         response = requests.post(f"{ESP32_IP}/data", json=payload)
         if response.status_code == 200:

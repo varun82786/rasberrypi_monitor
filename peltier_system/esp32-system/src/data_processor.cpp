@@ -15,6 +15,7 @@ RpiMetrics processReceivedData(const String& jsonData) {
     // Extract values from JSON
     data.cpu_usage = doc["cpu_usage"];
     data.cpu_temperature = doc["cpu_temperature"];
+    data.night_mode= doc["night_mode"];
 
     return data;
 }
