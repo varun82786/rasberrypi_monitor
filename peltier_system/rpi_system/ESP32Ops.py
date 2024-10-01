@@ -30,7 +30,7 @@ def cns_data_to_ESP_TS():
     past_avg_temp = get_average_thingspeak(CHANNEL_ID, 1, READ_API_KEY, results=100)
     
     print("Sending trigger to ESP32...")
-    send_data_to_esp32(cpu_usage, cpu_temp, night_mode)
+    send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp)
 
     if (ts_counter % 6 == 0): #as this function calls at every 5 secs each increment equals to 5sec and sends data for every 30 sec
         # Send data to ThingSpeak
