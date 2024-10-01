@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # Start the Flask server in a separate thread if needed
     # or run the server in the background so that the scheduler can run
     from threading import Thread
-    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000))
+    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000, debug=True))
     flask_thread.start()
 
     # Run the condition checks at regular intervals

@@ -51,8 +51,8 @@ int smps_fan_off_timer = 1;
 unsigned long oneSecond = 1000;
 unsigned long fiveSeconds = 5 * 1000;
 unsigned long tenSeconds = 10 * 1000;
-unsigned long halfMinute = 1 * 30 * 1000;
-unsigned long oneMinutes = 1 * 60 * 1000;
+unsigned long halfMinute = 0.5 * 60 * 1000;
+unsigned long oneMinute = 1 * 60 * 1000;   
 unsigned long fiveMinutes = 5 * 60 * 1000;
 unsigned long tenMinutes = 10 * 60 * 1000;
 unsigned long fifteenMinutes = 15 * 60 * 1000;
@@ -103,7 +103,7 @@ void loop() {
 
     if (!nightMode){
 
-        if(CpuTemp > 49 || CpuUsage >= 10 )
+        if(CpuTemp > 49.5 || CpuUsage >= 10 )
         {
 
             if (!SMPS.Status())
@@ -117,7 +117,7 @@ void loop() {
             // implement counter for smps fan
 
         }
-        else if (CpuTemp < 38 )
+        else if (CpuTemp < 38.5 )
         {
             RPI_FAN.off();
             delay(tenSeconds);
