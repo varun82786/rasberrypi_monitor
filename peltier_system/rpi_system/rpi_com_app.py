@@ -9,7 +9,7 @@ from operations import *
 
 app = Flask(__name__)
 
-ESP32_IP = "http://192.168.31.172"  # Replace with ESP32 IP address
+ESP32_IP = "http://192.168.31.172:8080"  # Replace with ESP32 IP address
 
 cpu_usage_threshold = 10  # CPU usage threshold to trigger communication
 cpu_temp_threshold = 34
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # Start the Flask server in a separate thread if needed
     # or run the server in the background so that the scheduler can run
     from threading import Thread
-    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000, debug=True))
+    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000))
     flask_thread.start()
 
     # Run the condition checks at regular intervals

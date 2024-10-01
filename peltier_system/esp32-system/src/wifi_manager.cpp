@@ -3,7 +3,7 @@
 
 extern RpiMetrics RpiData; // Global Variable to get store data
 
-WebServer server(80);  // Initialize the web server on port 80
+WebServer server(8080);  // Initialize the web server on port 80
 
 void initWiFi(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
