@@ -31,6 +31,7 @@ float RoomTemp = 0;
 float RoomHumid = 0;
 float CpuTemp = 60;   // Default value to trigger cooling system
 float CpuUsage = 50;  // Default value to trigger cooling system
+float upper_thresold_temp = 50;
 
 // Timers
 int sys_uptime = 0;          // System uptime counter

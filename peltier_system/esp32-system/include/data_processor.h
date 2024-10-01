@@ -7,6 +7,7 @@ struct RpiMetrics {
     float cpu_usage;
     float cpu_temperature;
     bool night_mode;
+    float past_avg_temp;
 };
 
 // Function to process received data

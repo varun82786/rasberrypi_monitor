@@ -49,6 +49,7 @@ void loop() {
     server.handleClient();
 
     // Check night mode and control SMPS and fans accordingly
+
     if (!nightMode) {
         manageCoolingSystem();
     } else {
@@ -69,6 +70,7 @@ void loop() {
     CpuTemp = RpiData.cpu_temperature;
     CpuUsage = RpiData.cpu_usage;
     nightMode = RpiData.night_mode;
+    upper_thresold_temp = RpiData.past_avg_temp;
 
     sys_uptime++;
     delay(oneSecond);
@@ -76,7 +78,7 @@ void loop() {
 
 // Manage cooling system based on CPU temperature and usage
 void manageCoolingSystem() {
-    if (CpuTemp > 50 || CpuUsage >= 50) {
+    if (CpuTemp > upper_thresold_temp || CpuUsage >= 50) {
         if (!SMPS.Status()) {
             SMPS.on();
         }
