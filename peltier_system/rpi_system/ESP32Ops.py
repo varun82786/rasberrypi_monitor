@@ -12,7 +12,7 @@ ESP32_IP = "http://192.168.31.172:8080"  # Replace with ESP32 IP address
 ts_counter = 0; # counter for sending data to things speak
 
 #collect and send data
-def cns_data_to_ESP_TS():
+def cns_data_to_ESP_TS(ts_counter):
 
     ts_counter += 1
     # Gather data
