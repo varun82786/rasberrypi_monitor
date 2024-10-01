@@ -1,0 +1,47 @@
+from apscheduler.schedulers.background import BackgroundScheduler
+import psutil
+import requests
+
+# Example job function
+def check_and_send_conditions(usage_threshold, temp_threshold):
+    # Your logic for checking and sending data goes here
+    cpu_usage = psutil.cpu_percent(interval=1)
+    cpu_temp = psutil.sensors_temperatures().get('cpu_thermal', [])[0].current
+    print(f"CPU Usage: {cpu_usage}%, CPU Temp: {cpu_temp}°C")
+
+    # Example of sending data to ESP32 (replace with your actual logic)
+    try:
+        payload = {
+            "sensor": "Raspberry Pi",
+            "cpu_usage": cpu_usage,
+            "cpu_temperature": cpu_temp,
+        }
+        response = requests.post("http://192.168.31.172:8080/data", json=payload)
+        if response.status_code == 200:
+            print("Data sent successfully!")
+        else:
+            print("Failed to send data.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+# Function to start the scheduler with all configurations
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+
+    scheduler.add_job(
+        check_and_send_conditions,           # The job function
+        'interval',                          # Trigger type
+        seconds=5,                           # Interval for job execution
+        args=[10, 34],                       # Arguments to pass to the function
+        max_instances=3,                     # Allow up to 3 concurrent instances
+        misfire_grace_time=30,               # Grace time for missed jobs
+        coalesce=True                        # Combine missed runs, only execute the most recent one
+    )
+
+    scheduler.start()
+
+if __name__ == "__main__":
+    start_scheduler()
+    # Flask or other main loop here
+    while True:
+        pass

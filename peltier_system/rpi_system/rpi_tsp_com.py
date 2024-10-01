@@ -25,7 +25,7 @@ def receive_data():
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(cns_data_to_ESP_TS, 'interval', seconds=check_interval)
+    scheduler.add_job(cns_data_to_ESP_TS, 'interval', seconds=check_interval, coalesce=True)
     scheduler.start()
     
 
