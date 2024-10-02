@@ -28,9 +28,10 @@ def cns_data_to_ESP_TS():
     uptime = get_system_uptime()
     night_mode = is_night()
     past_avg_temp = get_average_thingspeak(CHANNEL_ID, 1, READ_API_KEY, results=100)
+    lowest_temp = get_average_thingspeak(CHANNEL_ID, 1, READ_API_KEY, results=500)
     
     print("Sending trigger to ESP32...")
-    send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp)
+    send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp, lowest_temp)
 
     if (ts_counter % 6 == 0): #as this function calls at every 5 secs each increment equals to 5sec and sends data for every 30 sec
         # Send data to ThingSpeak
@@ -44,14 +45,15 @@ def cns_data_to_ESP_TS():
 
 
 
-def send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp):
+def send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp, lowest_temp):
     try:
         payload = {
             "sensor": "Raspberry Pi",
             "cpu_usage": cpu_usage,
             "cpu_temperature": cpu_temp,
             "night_mode": night_mode,
-            "past_avg_temp": past_avg_temp
+            "past_avg_temp": past_avg_temp,
+            "lowest_temp": lowest_temp,
         }
         response = requests.post(f"{ESP32_IP}/data", json=payload)
         if response.status_code == 200:

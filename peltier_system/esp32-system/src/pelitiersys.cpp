@@ -71,6 +71,7 @@ void loop() {
     CpuUsage = RpiData.cpu_usage;
     nightMode = RpiData.night_mode;
     upper_thresold_temp = RpiData.past_avg_temp;
+    lower_thresold_temp = RpiData.lowest_temp;
 
     sys_uptime++;
     delay(oneSecond);
@@ -85,7 +86,7 @@ void manageCoolingSystem() {
         if (!RPI_FAN.Status()) {
             RPI_FAN.on();
         }
-    } else if (CpuTemp < 39) {
+    } else if (CpuTemp < lower_thresold_temp) {
         RPI_FAN.off();
         delay(tenSeconds);
         SMPS.off();

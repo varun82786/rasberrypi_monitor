@@ -22,8 +22,14 @@ def post_to_thingspeak(cpu_temp, gpu_temp, cpu_usage, mem_usage, disk_usage, byt
     response = requests.post(THINGSPEAK_URL, params=payload)
     return response.status_code
 
-def get_average_thingspeak(CHANNEL_ID, field_id, READ_API_KEY, results=100):
+def get_average_thingspeak(CHANNEL_ID, field_id, READ_API_KEY, results=500):
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/{field_id}.json?api_key={READ_API_KEY}&results={results}"
     data = requests.get(url).json()
     values = [float(entry[f'field{field_id}']) for entry in data['feeds'] if entry[f'field{field_id}']]
     return sum(values) / len(values) if values else None
+
+def get_min_thingspeak(CHANNEL_ID, field_id, READ_API_KEY, results=1000):
+    url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/{field_id}.json?api_key={READ_API_KEY}&results={results}"
+    data = requests.get(url).json()
+    values = [float(entry[f'field{field_id}']) for entry in data['feeds'] if entry[f'field{field_id}']]
+    return min(values) if values else None
