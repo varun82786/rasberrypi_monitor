@@ -85,10 +85,13 @@ void manageCoolingSystem() {
         }
         if (!RPI_FAN.Status()) {
             RPI_FAN.on();
+            
         }
+        SMPS_FAN.on();
     } else if (CpuTemp < (lower_thresold_temp - 5.0)) {
         RPI_FAN.off();
-        delay(tenSeconds);
+        delay(3 * tenSeconds);
+        SMPS_FAN.off();
         SMPS.off();
     }
 }
