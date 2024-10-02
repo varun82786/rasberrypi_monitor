@@ -26,10 +26,10 @@ def get_average_thingspeak(CHANNEL_ID, field_id, READ_API_KEY, results=500):
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/{field_id}.json?api_key={READ_API_KEY}&results={results}"
     data = requests.get(url).json()
     values = [float(entry[f'field{field_id}']) for entry in data['feeds'] if entry[f'field{field_id}']]
-    return sum(values) / len(values) if values else None
+    return round(sum(values) / len(values),2) if values else None
 
 def get_min_thingspeak(CHANNEL_ID, field_id, READ_API_KEY, results=1000):
     url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/fields/{field_id}.json?api_key={READ_API_KEY}&results={results}"
     data = requests.get(url).json()
     values = [float(entry[f'field{field_id}']) for entry in data['feeds'] if entry[f'field{field_id}']]
-    return min(values) if values else None
+    return round(min(values), 2) if values else None

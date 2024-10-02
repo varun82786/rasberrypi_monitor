@@ -79,14 +79,14 @@ void loop() {
 
 // Manage cooling system based on CPU temperature and usage
 void manageCoolingSystem() {
-    if (CpuTemp > upper_thresold_temp || CpuUsage >= 50) {
+    if (CpuTemp > (upper_thresold_temp + 5.0) || CpuUsage >= 50) {
         if (!SMPS.Status()) {
             SMPS.on();
         }
         if (!RPI_FAN.Status()) {
             RPI_FAN.on();
         }
-    } else if (CpuTemp < lower_thresold_temp) {
+    } else if (CpuTemp < (lower_thresold_temp - 5.0)) {
         RPI_FAN.off();
         delay(tenSeconds);
         SMPS.off();
