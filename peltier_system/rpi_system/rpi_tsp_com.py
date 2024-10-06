@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler  # For schedul
 from operations import *
 from ESP32Ops import *
 
-check_interval = 5  # Check conditions every 30 seconds
+check_interval = 15  # Check conditions every 30 seconds
 
 app = Flask(__name__)
 
