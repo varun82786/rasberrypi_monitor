@@ -25,7 +25,15 @@ def receive_data():
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(cns_data_to_ESP_TS, 'interval', seconds=check_interval, coalesce=True, misfire_grace_time=60, max_instances= 4)
+    scheduler.add_job(
+        cns_data_to_ESP_TS, 
+        'interval', 
+        seconds=check_interval,
+        coalesce=True,
+        max_instances=1,  # Reduce max_instances to 1
+        replace_existing=True,  # Add this to replace existing jobs
+        misfire_grace_time=10  # Reduce grace time to 10 seconds
+    )
     scheduler.start()
     
 
