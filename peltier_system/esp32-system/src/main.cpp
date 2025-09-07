@@ -2,8 +2,8 @@
 #include <HTTPClient.h>
 #include <WebServer.h>
 #if 0
-const char* ssid = "Home-Sweet-Home";               // Your Wi-Fi SSID
-const char* password = "EAVVballa@82786";        // Your Wi-Fi password
+const char* ssid = "interstellar";               // Your Wi-Fi SSID
+const char* password = "Cooperstation05";        // Your Wi-Fi password
 const char* serverUrl = "http://192.168.31.145:5000";  // Raspberry Pi IP address
 
 WebServer server(80);  // Initialize the web server on port 80

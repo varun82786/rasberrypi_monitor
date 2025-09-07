@@ -7,7 +7,7 @@ from thingsSpeak import *
 
 
 
-ESP32_IP = "http://192.168.31.172:8080"  # Replace with ESP32 IP address
+ESP32_IP = "http://192.168.31.74:8080"  # Replace with ESP32 IP address
 
 #ESP32_IP = "http://192.168.1.105:8080"  # Replace with ESP32 IP address
 ts_counter = 0; # counter for sending data to things speak
