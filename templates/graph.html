@@ -81,23 +81,38 @@
 
         <!-- Data Statistics -->
         <div class="row mt-5 mb-4">
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <div class="data-card text-center">
                     <div class="card-label">Current Value</div>
                     <div class="card-value" id="current-value">--</div>
                 </div>
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <div class="data-card text-center">
                     <div class="card-label">Average</div>
                     <div class="card-value" id="average-value">--</div>
                 </div>
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <div class="data-card text-center">
                     <div class="card-label">Data Points</div>
                     <div class="card-value" id="data-points">--</div>
                 </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="data-card text-center">
+                    <div class="card-label">Actions</div>
+                    <button class="btn btn-sm btn-primary" onclick="exportCurrentData()" title="Export current data as CSV">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Min/Max Values -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <div id="min-max-values"></div>
             </div>
         </div>
 
