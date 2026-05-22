@@ -2,36 +2,108 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Real-Time Data Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitor Dashboard</title>
     <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Sci-Fi Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"> 
 </head>
 <body>
-    <div class="container-fluid mt-5">
-        <h1 class="text-center mb-5">Server Dashboard</h1>
+    <!-- Navigation Bar -->
+    <nav class="navbar-custom">
+        <div class="container-fluid">
+            <span class="navbar-brand">
+                <i class="fas fa-server"></i> System Monitor
+            </span>
+            <div class="nav-info text-muted" style="font-size: 0.9rem;">
+                <span id="last-update">Last update: --:--:--</span>
+            </div>
+        </div>
+    </nav>
 
-        <div class="container mt-5 text-center">
-            <h1 class="sci-fi">System Uptime</h1>
-            <h2 id="uptime" class="sci-fi">--:--:--</h2>
+    <!-- Main Container -->
+    <div class="container-fluid px-4 py-5">
+        <!-- Header Section -->
+        <div class="text-center mb-5 animate-in">
+            <h1><i class="fas fa-tachometer-alt"></i> System Dashboard</h1>
+            <p class="text-secondary" style="font-size: 1.1rem;">Real-time monitoring and performance tracking</p>
         </div>
 
-        <!-- Responsive rows for charts -->
+        <!-- System Status Cards -->
+        <div class="row mb-5">
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="data-card animate-in">
+                    <div class="card-label"><i class="fas fa-thermometer-half"></i> CPU Temperature</div>
+                    <div class="card-value" id="cpu-temp">--°C</div>
+                    <small class="status-indicator healthy"></small><small class="text-secondary">CPU</small>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="data-card animate-in">
+                    <div class="card-label"><i class="fas fa-microchip"></i> CPU Usage</div>
+                    <div class="card-value" id="cpu-usage">--%</div>
+                    <small class="status-indicator healthy"></small><small class="text-secondary">Load</small>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="data-card animate-in">
+                    <div class="card-label"><i class="fas fa-memory"></i> Memory Usage</div>
+                    <div class="card-value" id="mem-usage">-- GB</div>
+                    <small class="status-indicator healthy"></small><small class="text-secondary">RAM</small>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="data-card animate-in">
+                    <div class="card-label"><i class="fas fa-database"></i> Disk Usage</div>
+                    <div class="card-value" id="disk-usage">-- GB</div>
+                    <small class="status-indicator healthy"></small><small class="text-secondary">Storage</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Uptime Section -->
+        <div class="row mb-5">
+            <div class="col-12 col-md-6 col-lg-3 mx-auto">
+                <div class="data-card text-center animate-in">
+                    <div class="card-label"><i class="fas fa-clock"></i> System Uptime</div>
+                    <div class="sci-fi" id="uptime">--:--:--</div>
+                    <small class="text-secondary">Hours:Minutes:Seconds</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 style="margin-top: 3rem; margin-bottom: 1.5rem;">
+                    <i class="fas fa-chart-line"></i> Real-Time Charts
+                </h2>
+            </div>
+        </div>
+
         <div class="row">
-            <div class="col-12 col-md-6">
-                <div class="card mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="card animate-in">
+                    <div class="card-header">
+                        <h5><i class="fas fa-thermometer-half"></i> CPU Temperature Trend</h5>
+                    </div>
                     <div class="card-body">
                         <canvas id="cpuTempChart"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-6">
-                <div class="card mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="card animate-in">
+                    <div class="card-header">
+                        <h5><i class="fas fa-microchip"></i> CPU Usage Trend</h5>
+                    </div>
                     <div class="card-body">
                         <canvas id="cpuUsageChart"></canvas>
                     </div>
@@ -40,15 +112,21 @@
         </div>
 
         <div class="row">
-            <div class="col-12 col-md-6">
-                <div class="card mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="card animate-in">
+                    <div class="card-header">
+                        <h5><i class="fas fa-memory"></i> Memory Usage Trend</h5>
+                    </div>
                     <div class="card-body">
                         <canvas id="memUsageChart"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-6">
-                <div class="card mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="card animate-in">
+                    <div class="card-header">
+                        <h5><i class="fas fa-database"></i> Disk Usage Trend</h5>
+                    </div>
                     <div class="card-body">
                         <canvas id="diskUsageChart"></canvas>
                     </div>
@@ -56,27 +134,46 @@
             </div>
         </div>
 
-        <!-- Buttons for each field leading to their respective graph pages -->
-        <div class="row justify-content-center mt-3 mb-3">
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <a href="/graph/field1" class="btn btn-primary btn-block">CPU Temperature</a>
+        <!-- Detailed View Buttons -->
+        <div class="row mt-5 mb-4">
+            <div class="col-12">
+                <h2 style="margin-bottom: 1.5rem;">
+                    <i class="fas fa-binoculars"></i> Detailed Analysis
+                </h2>
             </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <a href="/graph/field2" class="btn btn-primary btn-block">CPU Usage</a>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <a href="/graph/field3" class="btn btn-primary btn-block">Memory Usage</a>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <a href="/graph/field4" class="btn btn-primary btn-block">Disk Usage</a>
-            </div>
+        </div>
+
+        <div class="btn-group-custom">
+            <a href="/graph/field1" class="btn btn-primary">
+                <i class="fas fa-thermometer-half"></i> CPU Temperature
+            </a>
+            <a href="/graph/field2" class="btn btn-primary">
+                <i class="fas fa-fan"></i> GPU Temperature
+            </a>
+            <a href="/graph/field3" class="btn btn-primary">
+                <i class="fas fa-tachometer-alt"></i> CPU Usage
+            </a>
+            <a href="/graph/field4" class="btn btn-primary">
+                <i class="fas fa-memory"></i> Memory Usage
+            </a>
+            <a href="/graph/field5" class="btn btn-primary">
+                <i class="fas fa-database"></i> Disk Usage
+            </a>
+            <a href="/graph/field8" class="btn btn-primary">
+                <i class="fas fa-clock"></i> System Uptime
+            </a>
         </div>
     </div>
 
-    <!-- jQuery and Bootstrap JS -->
+    <!-- Loading Indicator -->
+    <div class="loading-text" id="loading-indicator" style="display: none;">
+        <div class="loading-spinner"></div>
+        <span>Updating data...</span>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
 </html>

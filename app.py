@@ -19,6 +19,17 @@ def data():
     # Fetch the latest 15 data points from ThingSpeak
     response = requests.get(THINGSPEAK_URL, params={'api_key': READ_API_KEY, 'results': 15})
     data = response.json()
+    # Add field labels for better UI
+    data['field_labels'] = {
+        'field1': 'CPU Temperature',
+        'field2': 'GPU Temperature',
+        'field3': 'CPU Usage',
+        'field4': 'Memory Usage',
+        'field5': 'Disk Usage',
+        'field6': 'Bytes Sent',
+        'field7': 'Bytes Received',
+        'field8': 'System Uptime'
+    }
     return jsonify(data)
 
 @app.route('/graph/<field>')

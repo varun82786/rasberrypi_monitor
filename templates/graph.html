@@ -3,52 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ field | title }} Graph</title>
+    <title>{{ field | title }} - Detailed Analysis</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/graph.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="text-center">{{ field | title }} Data</h1>
-        
-        <!-- Graph area -->
-        <div class="card mb-4">
+    <!-- Header Section -->
+    <div class="graph-header">
+        <div class="container-fluid">
+            <a href="/" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <h1><i class="fas fa-chart-line"></i> {{ field | title }} Analysis</h1>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mt-4">
+        <!-- Chart Card -->
+        <div class="card animate-in mb-5">
             <div class="card-body">
-                <canvas id="graphCanvas"></canvas>
+                <div class="loading-text" id="loading-indicator" style="text-align: center;">
+                    <div class="loading-spinner"></div>
+                    <span>Loading data...</span>
+                </div>
+                <canvas id="graphCanvas" style="display:none;"></canvas>
             </div>
         </div>
 
-        <!-- Time range buttons in a responsive grid layout -->
-        <div class="row justify-content-center mt-3 mb-3">
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('live')">Live</button>
+        <!-- Time Range Selection -->
+        <div class="time-range-container">
+            <button class="btn btn-secondary active" onclick="fetchData_period('live')">
+                <i class="fas fa-fire"></i> Live
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('30min')">
+                <i class="fas fa-clock"></i> 30 Min
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('1hr')">
+                <i class="fas fa-hourglass-start"></i> 1 Hour
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('3hrs')">
+                <i class="fas fa-hourglass-half"></i> 3 Hours
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('6hrs')">
+                <i class="fas fa-hourglass-end"></i> 6 Hours
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('12hrs')">
+                <i class="fas fa-calendar"></i> 12 Hours
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('24hrs')">
+                <i class="fas fa-calendar-alt"></i> 24 Hours
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('48hrs')">
+                <i class="fas fa-calendar-check"></i> 48 Hours
+            </button>
+            <button class="btn btn-secondary" onclick="fetchData_period('72hrs')">
+                <i class="fas fa-calendar-times"></i> 72 Hours
+            </button>
+        </div>
+
+        <!-- Data Statistics -->
+        <div class="row mt-5 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="data-card text-center">
+                    <div class="card-label">Current Value</div>
+                    <div class="card-value" id="current-value">--</div>
+                </div>
             </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('30min')">30 Min</button>
+            <div class="col-12 col-md-4">
+                <div class="data-card text-center">
+                    <div class="card-label">Average</div>
+                    <div class="card-value" id="average-value">--</div>
+                </div>
             </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('1hr')">1 Hour</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('3hrs')">3 Hours</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('6hrs')">6 Hours</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('12hrs')">12 Hours</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('24hrs')">24 Hours</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('48hrs')">48 Hours</button>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2 mb-2">
-                <button class="btn btn-secondary btn-block" onclick="fetchData_period('72hrs')">72 Hours</button>
+            <div class="col-12 col-md-4">
+                <div class="data-card text-center">
+                    <div class="card-label">Data Points</div>
+                    <div class="card-value" id="data-points">--</div>
+                </div>
             </div>
         </div>
+
+        <p class="info-text">
+            <i class="fas fa-info-circle"></i> Click on time range buttons to view different periods of data
+        </p>
     </div>
 
     <script src="/static/js/graph.js"></script>
