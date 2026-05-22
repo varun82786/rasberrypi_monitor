@@ -11,6 +11,7 @@
     --success-color: #06d6a0;
     --warning-color: #ff9f1c;
     --danger-color: #ff006e;
+    --info-color: #3498db;
 }
 
 * {
@@ -33,6 +34,7 @@ body {
     border-bottom: 2px solid var(--primary-color);
     padding: 1rem 0;
     box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .navbar-custom .navbar-brand {
@@ -42,6 +44,13 @@ body {
     color: var(--primary-color);
     text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
     letter-spacing: 2px;
+}
+
+.nav-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 /* Main Title */
@@ -92,6 +101,7 @@ h2 {
     backdrop-filter: blur(10px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+    position: relative;
 }
 
 .data-card:hover {
@@ -114,12 +124,20 @@ h2 {
     font-weight: 700;
     color: var(--primary-color);
     font-family: 'Courier New', monospace;
+    margin-bottom: 0.5rem;
 }
 
 .data-card .card-unit {
     font-size: 0.9rem;
     color: var(--text-secondary);
     margin-left: 0.5rem;
+}
+
+.data-card .card-minmax {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.8;
 }
 
 .data-card .status-indicator {
