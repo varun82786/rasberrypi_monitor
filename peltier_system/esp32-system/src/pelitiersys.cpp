@@ -51,7 +51,7 @@ void loop() {
     // Check night mode and control SMPS and fans accordingly
 
     if (!nightMode) {
-        manageCoolingSystem();
+        activateNightMode();
     } else {
         activateNightMode();
     }
