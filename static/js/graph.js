@@ -13,7 +13,8 @@ function fetchData_period(period) {
         event.target.classList.add('active');
     }
     
-    fetch(`/historic_data/field1/${period}`)
+    // Use the CURRENT_FIELD variable from the template
+    fetch(`/historic_data/${CURRENT_FIELD}/${period}`)
         .then(response => response.json())
         .then(data => {
             const feeds = data.feeds;
@@ -23,7 +24,8 @@ function fetchData_period(period) {
             feeds.forEach(feed => {
                 const time = extractISTTime(feed.created_at);
                 labels.push(time);
-                values.push(parseFloat(feed.field1));
+                const fieldValue = feed[CURRENT_FIELD];
+                values.push(parseFloat(fieldValue) || 0);
             });
 
             updateChart(labels, values);
@@ -46,12 +48,15 @@ function updateChart(labels, values) {
     const canvas = document.getElementById('graphCanvas');
     canvas.style.display = 'block';
     
+    // Get the label for the current field
+    const fieldLabel = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+    
     chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: '{{ field | title }}',
+                label: fieldLabel,
                 data: values,
                 borderColor: 'rgba(0, 212, 255, 1)',
                 backgroundColor: 'rgba(0, 212, 255, 0.1)',
@@ -96,6 +101,52 @@ function updateChart(labels, values) {
             }
         }
     });
+}
+
+function updateStatistics(values) {
+    if (values.length === 0) return;
+    
+    const currentValue = values[values.length - 1];
+    const average = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+    const dataPoints = values.length;
+    
+    const currentEl = document.getElementById('current-value');
+    const avgEl = document.getElementById('average-value');
+    const pointsEl = document.getElementById('data-points');
+    
+    if (currentEl) currentEl.textContent = currentValue.toFixed(2);
+    if (avgEl) avgEl.textContent = average;
+    if (pointsEl) pointsEl.textContent = dataPoints;
+}
+
+function extractISTTime(utcTimestamp) {
+    const utcDate = new Date(utcTimestamp);
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(utcDate.getTime() + istOffset);
+
+    const hours = String(istDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
+
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function showLoadingIndicator(show) {
+    const indicator = document.getElementById('loading-indicator');
+    if (indicator) {
+        indicator.style.display = show ? 'flex' : 'none';
+    }
+    const canvas = document.getElementById('graphCanvas');
+    if (canvas) {
+        canvas.style.display = show ? 'none' : 'block';
+    }
+}
+
+// Fetch initial data on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => fetchData_period('live'));
+} else {
+    fetchData_period('live');
 }
 
 function updateStatistics(values) {
