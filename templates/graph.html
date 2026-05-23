@@ -1,161 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ field | title }} - Detailed Analysis</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/graph.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Pass field parameter to JavaScript -->
-    <script>
-        const CURRENT_FIELD = '{{ field }}';
-        const FIELD_LABELS = {
-            'field1': 'CPU Temperature (°C)',
-            'field2': 'GPU Temperature (°C)',
-            'field3': 'CPU Usage (%)',
-            'field4': 'Memory Usage (GB)',
-            'field5': 'Disk Usage (GB)',
-            'field6': 'Bytes Sent',
-            'field7': 'Bytes Received',
-            'field8': 'System Uptime (hours)'
-        };
-        
-        // Debug logging
-        console.log('Template loaded with field:', CURRENT_FIELD);
-        console.log('Field labels:', FIELD_LABELS);
-        
-        // Check if Chart.js is loading
-        window.addEventListener('load', function() {
-            console.log('Window loaded. Chart.js available:', typeof Chart !== 'undefined');
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js failed to load from CDN');
-            }
-        });
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Detailed historical analysis for {{ field }} — Raspberry Pi system monitor.">
+  <title>{{ field | title }} Analysis — RPi Monitor</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <!-- Styles -->
+  <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/graph.css') }}">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Field data for JavaScript -->
+  <script>
+    const CURRENT_FIELD = '{{ field }}';
+    const FIELD_LABELS = {
+      'field1': 'CPU Temperature (°C)',
+      'field2': 'GPU Temperature (°C)',
+      'field3': 'CPU Usage (%)',
+      'field4': 'Memory Usage (GB)',
+      'field5': 'Disk Usage (GB)',
+      'field6': 'Bytes Sent (GB)',
+      'field7': 'Bytes Received (GB)',
+      'field8': 'System Uptime (hours)'
+    };
+    const FIELD_NAMES = {
+      'field1': 'CPU Temperature',
+      'field2': 'GPU Temperature',
+      'field3': 'CPU Usage',
+      'field4': 'Memory Usage',
+      'field5': 'Disk Usage',
+      'field6': 'Bytes Sent',
+      'field7': 'Bytes Received',
+      'field8': 'System Uptime'
+    };
+  </script>
 </head>
-<body>
-    <!-- Header Section -->
-    <div class="graph-header">
-        <div class="container-fluid">
-            <a href="/" class="btn-back">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
-            <h1><i class="fas fa-chart-line"></i> {{ field | title }} Analysis</h1>
-        </div>
+<body class="graph-page">
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════ -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <a href="/" class="nav-logo" aria-label="RPi Monitor home">
+    <div class="nav-logo-icon" aria-hidden="true">
+      <i class="fas fa-microchip"></i>
+    </div>
+    <span class="nav-logo-text">RPi Monitor <span>/ Analysis</span></span>
+  </a>
+
+  <div class="nav-divider" aria-hidden="true"></div>
+
+  <a href="/" class="back-link" aria-label="Return to dashboard">
+    <i class="fas fa-arrow-left" aria-hidden="true"></i>
+    Dashboard
+  </a>
+
+  <div class="nav-collapse" id="nav-collapse">
+    <div class="nav-meta">
+      <span id="last-update-graph" style="font-size:12px; color: var(--text-3);">—</span>
+      <button class="btn-nav btn-sm" onclick="exportCurrentData()" title="Export current data as CSV" aria-label="Export data">
+        <i class="fas fa-download" aria-hidden="true"></i>
+        Export
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile hamburger -->
+  <button class="nav-hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-collapse">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+</nav>
+
+<!-- ══ MAIN CONTENT ════════════════════════════════════════ -->
+<main class="main" id="main-content">
+  <div class="container">
+
+    <!-- Page Header -->
+    <header class="page-header animate-in">
+      <div>
+        <h1 class="page-title" id="graph-page-title">{{ field | title }} Analysis</h1>
+        <p class="page-subtitle">Historical data — select a time range below</p>
+      </div>
+    </header>
+
+    <!-- ── STATS ROW ─────────────────────────────────────── -->
+    <section class="stats-grid animate-in" aria-label="Data statistics">
+
+      <div class="stat-card">
+        <div class="stat-label">Current</div>
+        <div class="stat-value" id="current-value">—</div>
+        <div class="stat-unit" id="stat-unit-current"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Average</div>
+        <div class="stat-value" id="average-value">—</div>
+        <div class="stat-unit" id="stat-unit-avg"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Minimum</div>
+        <div class="stat-value" id="min-value">—</div>
+        <div class="stat-unit" id="stat-unit-min"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Maximum</div>
+        <div class="stat-value" id="max-value">—</div>
+        <div class="stat-unit" id="stat-unit-max"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Data Points</div>
+        <div class="stat-value" id="data-points">—</div>
+        <div class="stat-unit">entries</div>
+      </div>
+
+    </section>
+
+    <!-- ── TIME RANGE ────────────────────────────────────── -->
+    <div class="time-range-container animate-in" role="group" aria-label="Select time range">
+      <div class="segment-group">
+        <button class="segment-btn active" data-period="live"  aria-pressed="true">Live</button>
+        <button class="segment-btn" data-period="30min"  aria-pressed="false">30m</button>
+        <button class="segment-btn" data-period="1hr"    aria-pressed="false">1h</button>
+        <button class="segment-btn" data-period="3hrs"   aria-pressed="false">3h</button>
+        <button class="segment-btn" data-period="6hrs"   aria-pressed="false">6h</button>
+        <button class="segment-btn" data-period="12hrs"  aria-pressed="false">12h</button>
+        <button class="segment-btn" data-period="24hrs"  aria-pressed="false">24h</button>
+        <button class="segment-btn" data-period="48hrs"  aria-pressed="false">48h</button>
+        <button class="segment-btn" data-period="72hrs"  aria-pressed="false">72h</button>
+      </div>
     </div>
 
-    <!-- Main Container -->
-    <div class="container mt-4">
-        <!-- Debug Information -->
-        <div class="alert alert-info" id="debug-info" style="display: none;">
-            <h5>Debug Information</h5>
-            <p><strong>Field:</strong> {{ field }}</p>
-            <p><strong>Field Label:</strong> <span id="debug-field-label"></span></p>
-            <p><strong>Chart.js Loaded:</strong> <span id="debug-chartjs"></span></p>
-            <p><strong>Canvas Element:</strong> <span id="debug-canvas"></span></p>
+    <!-- ── CHART ─────────────────────────────────────────── -->
+    <section class="chart-card animate-in" aria-label="Historical chart">
+      <div class="chart-card-header">
+        <div class="chart-title" id="chart-card-title">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+          <span id="chart-title-text">Loading…</span>
         </div>
-        
-        <!-- Toggle Debug Button -->
-        <button class="btn btn-sm btn-outline-light mb-3" onclick="toggleDebug()">
-            <i class="fas fa-bug"></i> Toggle Debug Info
-        </button>
+        <div class="chart-actions">
+          <button class="btn btn-sm btn-icon" onclick="exportCurrentData()" title="Export data as CSV" aria-label="Export CSV">
+            <i class="fas fa-download" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+      <div class="chart-body" id="chart-body-wrapper">
+        <!-- Loading state -->
+        <div class="chart-loading" id="loading-indicator">
+          <div class="spinner" aria-hidden="true"></div>
+          <span>Loading data…</span>
+        </div>
+        <!-- Canvas -->
+        <canvas id="graphCanvas" style="display:none;" aria-label="Historical data chart" role="img"></canvas>
+      </div>
+    </section>
 
-        <!-- Chart Card -->
-        <div class="card animate-in mb-5">
-            <div class="card-body">
-                <div class="loading-text" id="loading-indicator" style="text-align: center;">
-                    <div class="loading-spinner"></div>
-                    <span>Loading data...</span>
-                </div>
-                <canvas id="graphCanvas" style="display:none;"></canvas>
-            </div>
-        </div>
-
-        <!-- Time Range Selection -->
-        <div class="time-range-container">
-            <button class="btn btn-secondary active" data-period="live">
-                <i class="fas fa-fire"></i> Live
-            </button>
-            <button class="btn btn-secondary" data-period="30min">
-                <i class="fas fa-clock"></i> 30 Min
-            </button>
-            <button class="btn btn-secondary" data-period="1hr">
-                <i class="fas fa-hourglass-start"></i> 1 Hour
-            </button>
-            <button class="btn btn-secondary" data-period="3hrs">
-                <i class="fas fa-hourglass-half"></i> 3 Hours
-            </button>
-            <button class="btn btn-secondary" data-period="6hrs">
-                <i class="fas fa-hourglass-end"></i> 6 Hours
-            </button>
-            <button class="btn btn-secondary" data-period="12hrs">
-                <i class="fas fa-calendar"></i> 12 Hours
-            </button>
-            <button class="btn btn-secondary" data-period="24hrs">
-                <i class="fas fa-calendar-alt"></i> 24 Hours
-            </button>
-            <button class="btn btn-secondary" data-period="48hrs">
-                <i class="fas fa-calendar-check"></i> 48 Hours
-            </button>
-            <button class="btn btn-secondary" data-period="72hrs">
-                <i class="fas fa-calendar-times"></i> 72 Hours
-            </button>
-        </div>
-
-        <!-- Data Statistics -->
-        <div class="row mt-5 mb-4">
-            <div class="col-12 col-md-3">
-                <div class="data-card text-center">
-                    <div class="card-label">Current Value</div>
-                    <div class="card-value" id="current-value">--</div>
-                </div>
-            </div>
-            <div class="col-12 col-md-3">
-                <div class="data-card text-center">
-                    <div class="card-label">Average</div>
-                    <div class="card-value" id="average-value">--</div>
-                </div>
-            </div>
-            <div class="col-12 col-md-3">
-                <div class="data-card text-center">
-                    <div class="card-label">Data Points</div>
-                    <div class="card-value" id="data-points">--</div>
-                </div>
-            </div>
-            <div class="col-12 col-md-3">
-                <div class="data-card text-center">
-                    <div class="card-label">Actions</div>
-                    <button class="btn btn-sm btn-primary" onclick="exportCurrentData()" title="Export current data as CSV">
-                        <i class="fas fa-download"></i> Export
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Min/Max Values -->
-        <div class="row mb-4">
-            <div class="col-12 text-center">
-                <div id="min-max-values"></div>
-            </div>
-        </div>
-
-        <p class="info-text">
-            <i class="fas fa-info-circle"></i> Click on time range buttons to view different periods of data. 
-            Press <kbd>Ctrl+R</kbd> to refresh, <kbd>Ctrl+E</kbd> to export data.
-        </p>
-        
-        <!-- Keyboard Shortcuts Info -->
-        <div class="keyboard-shortcuts">
-            <small>
-                <i class="fas fa-keyboard"></i> 
-                <strong>Shortcuts:</strong> Ctrl+R (Refresh) | Ctrl+E (Export)
-            </small>
-        </div>
+    <!-- Debug info (hidden, kept for compatibility) -->
+    <div id="debug-info" aria-hidden="true">
+      <p><strong>Field:</strong> {{ field }}</p>
+      <p><strong>Label:</strong> <span id="debug-field-label"></span></p>
+      <p><strong>Chart.js:</strong> <span id="debug-chartjs"></span></p>
+      <p><strong>Canvas:</strong> <span id="debug-canvas"></span></p>
     </div>
 
-    <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+    <!-- Min/max (kept for JS compat) -->
+    <div id="min-max-values" style="display:none;"></div>
+
+    <!-- Info -->
+    <p class="info-text">
+      <i class="fas fa-keyboard" aria-hidden="true"></i>
+      <kbd>Ctrl+R</kbd> Refresh &nbsp;·&nbsp; <kbd>Ctrl+E</kbd> Export
+    </p>
+
+    <div class="shortcuts-bar" role="note">
+      <i class="fas fa-keyboard" aria-hidden="true"></i>
+      <kbd>Ctrl+R</kbd> Refresh &nbsp;·&nbsp; <kbd>Ctrl+E</kbd> Export
+    </div>
+
+  </div>
+</main>
+
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
 </body>
 </html>

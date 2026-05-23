@@ -1,453 +1,392 @@
-// Enhanced graph functionality with better error handling
-let chart;
+/* ============================================================
+   RPi Monitor — Graph Detail Script (graph.js)
+   Handles: historical chart, segmented controls, stat cards,
+            threshold annotations, export, keyboard shortcuts
+   ============================================================ */
+
+'use strict';
+
+let chart = null;
 let currentPeriod = 'live';
 let isLoading = false;
 
 const CONFIG = {
-    maxRetries: 3,
-    retryDelay: 2000,
-    chartAnimationDuration: 750
+  maxRetries: 3,
+  retryDelay: 2000,
+  chartAnimationDuration: 600,
 };
 
 const STATE = {
-    retryCount: 0,
-    lastSuccessfulUpdate: null
+  retryCount: 0,
+  lastSuccessfulUpdate: null,
 };
 
-function fetchData_period(period) {
-    if (isLoading) return;
-    
-    console.log('Fetching data for period:', period);
-    currentPeriod = period;
-    isLoading = true;
-    showLoadingIndicator(true);
-    
-    // Update active button
-    document.querySelectorAll('.time-range-container button').forEach(btn => {
-        btn.classList.remove('active');
+// ── Chart.js global defaults ──────────────────────────────
+Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = 'hsl(215, 20%, 64%)';
+
+// ── IST time helper ───────────────────────────────────────
+function extractISTTime(utcTs) {
+  try {
+    const d = new Date(new Date(utcTs).getTime() + 5.5 * 3600000);
+    return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}`;
+  } catch {
+    return '--:--:--';
+  }
+}
+
+// ── Field color mapping ───────────────────────────────────
+const FIELD_COLORS = {
+  field1: 'hsl(196, 80%, 48%)',  // cyan   — CPU Temp
+  field2: 'hsl(270, 60%, 65%)',  // purple — GPU Temp
+  field3: 'hsl(152, 60%, 48%)',  // green  — CPU Usage
+  field4: 'hsl(38, 90%, 58%)',   // amber  — Memory
+  field5: 'hsl(196, 70%, 62%)',  // light  — Disk
+  field6: 'hsl(200, 70%, 55%)',  // teal   — Bytes Sent
+  field7: 'hsl(220, 65%, 62%)',  // blue   — Bytes Recv
+  field8: 'hsl(152, 60%, 48%)',  // green  — Uptime
+};
+
+function getFieldColor() {
+  return FIELD_COLORS[CURRENT_FIELD] || 'hsl(196, 80%, 48%)';
+}
+
+// ── Build gradient for a canvas context ──────────────────
+function buildGradient(ctx, height, color) {
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  // convert hsl() → hsla() manually
+  const hsla = color.replace('hsl(', 'hsla(').replace(')', ', ');
+  grad.addColorStop(0, hsla + '0.28)');
+  grad.addColorStop(0.6, hsla + '0.08)');
+  grad.addColorStop(1, hsla + '0)');
+  return grad;
+}
+
+// ── Create / update chart ─────────────────────────────────
+function updateChart(labels, values, data = {}) {
+  const canvas = document.getElementById('graphCanvas');
+  if (!canvas) return;
+
+  const ctx    = canvas.getContext('2d');
+  const color  = getFieldColor();
+  const height = canvas.clientHeight || 380;
+  const grad   = buildGradient(ctx, height, color);
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  canvas.style.display = 'block';
+  const errorEl = document.querySelector('.error-state');
+  if (errorEl) errorEl.remove();
+
+  const fieldLabel = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+
+  try {
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: fieldLabel,
+          data: values,
+          borderColor: color,
+          backgroundColor: grad,
+          borderWidth: 2,
+          fill: true,
+          tension: 0.45,
+          pointRadius: labels.length > 100 ? 0 : 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: color,
+          pointBorderColor: 'hsl(222, 47%, 4%)',
+          pointBorderWidth: 1.5,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: CONFIG.chartAnimationDuration, easing: 'easeInOutQuart' },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'hsl(222, 40%, 9%)',
+            titleColor: 'hsl(210, 36%, 96%)',
+            bodyColor: 'hsl(215, 20%, 64%)',
+            borderColor: 'hsl(222, 28%, 18%)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            titleFont: { weight: '600', size: 12 },
+            bodyFont: { size: 11 },
+            callbacks: {
+              label: (ctx) => {
+                let txt = `  ${ctx.parsed.y.toFixed(2)}`;
+                if (data.thresholds) {
+                  const v = ctx.parsed.y;
+                  if (v > data.thresholds.critical) txt += '  🔴';
+                  else if (v > data.thresholds.warning) txt += '  🟡';
+                }
+                return txt;
+              },
+              afterLabel: (ctx) => {
+                if (!data.thresholds) return [];
+                const v = ctx.parsed.y;
+                const lines = [];
+                if (v > data.thresholds.critical)
+                  lines.push(`  ⚠ Above critical (${data.thresholds.critical})`);
+                else if (v > data.thresholds.warning)
+                  lines.push(`  ▲ Above warning (${data.thresholds.warning})`);
+                return lines;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'hsla(222, 28%, 15%, 0.5)', drawBorder: false },
+            ticks: { maxRotation: 0, maxTicksLimit: 8, font: { size: 10 } },
+            border: { display: false },
+          },
+          y: {
+            beginAtZero: false,
+            grid: { color: 'hsla(222, 28%, 15%, 0.5)', drawBorder: false },
+            ticks: { maxTicksLimit: 6, font: { size: 10 } },
+            border: { display: false },
+          },
+        },
+      },
     });
-    
-    // Find and activate the button for this period
-    const activeButton = document.querySelector(`button[data-period="${period}"]`);
-    if (activeButton) {
-        activeButton.classList.add('active');
-        console.log('Activated button for period:', period);
-    } else {
-        console.warn('Could not find button for period:', period);
-    }
-    
-    // Use the CURRENT_FIELD variable from the template
-    const url = `/historic_data/${CURRENT_FIELD}/${period}`;
-    console.log('Fetching from URL:', url);
-    
-    fetch(url)
-        .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Received data:', data);
-            if (data.error) {
-                throw new Error(data.message || data.error);
-            }
-            
-            const feeds = data.feeds || [];
-            const labels = [];
-            const values = [];
-
-            feeds.forEach(feed => {
-                const time = extractISTTime(feed.created_at);
-                labels.push(time);
-                const fieldValue = feed[CURRENT_FIELD];
-                values.push(parseFloat(fieldValue) || 0);
-            });
-
-            console.log('Processed data - Labels:', labels.length, 'Values:', values.length);
-            updateChart(labels, values, data);
-            updateStatistics(values, data.statistics);
-            showLoadingIndicator(false);
-            isLoading = false;
-            STATE.retryCount = 0;
-            STATE.lastSuccessfulUpdate = new Date();
-            
-            // Show cache hit indicator
-            if (data.cache_hit) {
-                console.log('Data served from cache');
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching data:', error);
-            handleFetchError(error, period);
-        });
-}
-function handleFetchError(error, period) {
-    STATE.retryCount++;
-    isLoading = false;
-    showLoadingIndicator(false);
-    
-    if (STATE.retryCount <= CONFIG.maxRetries) {
-        console.log(`Retrying fetch (attempt ${STATE.retryCount}/${CONFIG.maxRetries})...`);
-        setTimeout(() => {
-            fetchData_period(period);
-        }, CONFIG.retryDelay);
-    } else {
-        showError(`Failed to load data after ${CONFIG.maxRetries} attempts: ${error.message}`);
-    }
+  } catch (err) {
+    console.error('Chart creation error:', err);
+    showChartError(err.message);
+  }
 }
 
-function showError(message) {
-    const canvas = document.getElementById('graphCanvas');
-    const container = canvas.parentElement;
-    
-    // Create error message element
-    let errorEl = container.querySelector('.error-message');
-    if (!errorEl) {
-        errorEl = document.createElement('div');
-        errorEl.className = 'error-message text-center p-4';
-        errorEl.style.color = 'var(--danger-color)';
-        container.appendChild(errorEl);
-    }
-    
-    errorEl.innerHTML = `
-        <i class="fas fa-exclamation-triangle mb-2"></i><br>
-        <strong>Error Loading Data</strong><br>
-        <small>${message}</small><br>
-        <button class="btn btn-sm btn-outline-light mt-2" onclick="retryFetch()">
-            <i class="fas fa-redo"></i> Retry
-        </button>
-    `;
-    
-    canvas.style.display = 'none';
+// ── Show chart-level error ────────────────────────────────
+function showChartError(message) {
+  const canvas = document.getElementById('graphCanvas');
+  if (canvas) canvas.style.display = 'none';
+
+  const wrapper = document.getElementById('chart-body-wrapper');
+  if (!wrapper) return;
+
+  let el = wrapper.querySelector('.error-state');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'error-state';
+    wrapper.appendChild(el);
+  }
+
+  el.innerHTML = `
+    <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+    <strong>Failed to load chart</strong>
+    <span style="font-size:11px; color: var(--text-3);">${message}</span>
+    <button class="btn btn-sm" onclick="retryFetch()" style="margin-top:8px;">
+      <i class="fas fa-arrow-rotate-right"></i> Retry
+    </button>
+  `;
+}
+
+// ── Update stats cards ────────────────────────────────────
+function updateStatElement(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = value;
+  el.classList.remove('stat-updated');
+  void el.offsetWidth;
+  el.classList.add('stat-updated');
+  setTimeout(() => el.classList.remove('stat-updated'), 300);
+}
+
+function updateStatistics(values, serverStats = null) {
+  if (!values.length) {
+    ['current-value','average-value','min-value','max-value','data-points'].forEach(id => updateStatElement(id, '—'));
+    return;
+  }
+
+  const stats = (serverStats?.average !== undefined) ? serverStats : {
+    average: values.reduce((a,b) => a+b, 0) / values.length,
+    min:     Math.min(...values),
+    max:     Math.max(...values),
+    count:   values.length,
+  };
+
+  const dp = 2;
+  updateStatElement('current-value', values[values.length - 1].toFixed(dp));
+  updateStatElement('average-value', stats.average.toFixed(dp));
+  updateStatElement('min-value',     stats.min.toFixed(dp));
+  updateStatElement('max-value',     stats.max.toFixed(dp));
+  updateStatElement('data-points',   String(stats.count || values.length));
+
+  // Also update legacy min-max div for compat
+  const mmEl = document.getElementById('min-max-values');
+  if (mmEl) mmEl.textContent = `Min: ${stats.min.toFixed(dp)} · Max: ${stats.max.toFixed(dp)}`;
+}
+
+// ── Set page title based on field ────────────────────────
+function setPageTitle() {
+  const name  = (window.FIELD_NAMES || {})[CURRENT_FIELD] || CURRENT_FIELD;
+  const label = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+
+  const h1 = document.getElementById('graph-page-title');
+  if (h1) h1.textContent = `${name} Analysis`;
+
+  const chartTitle = document.getElementById('chart-title-text');
+  if (chartTitle) chartTitle.textContent = label;
+
+  document.title = `${name} — RPi Monitor`;
+}
+
+// ── Loading state ─────────────────────────────────────────
+function showLoadingIndicator(show) {
+  const ind    = document.getElementById('loading-indicator');
+  const canvas = document.getElementById('graphCanvas');
+  if (ind)    ind.style.display    = show ? 'flex' : 'none';
+  if (canvas) canvas.style.display = show ? 'none' : 'block';
+}
+
+// ── Segmented control state ───────────────────────────────
+function setActiveSegment(period) {
+  document.querySelectorAll('.segment-btn').forEach(btn => {
+    const active = btn.getAttribute('data-period') === period;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+// ── Fetch data for a period ───────────────────────────────
+function fetchData_period(period) {
+  if (isLoading) return;
+
+  currentPeriod = period;
+  isLoading = true;
+  setActiveSegment(period);
+  showLoadingIndicator(true);
+
+  const url = `/historic_data/${CURRENT_FIELD}/${period}`;
+
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return res.json();
+    })
+    .then(data => {
+      if (data.error) throw new Error(data.message || data.error);
+
+      const feeds  = data.feeds || [];
+      const labels = feeds.map(f => extractISTTime(f.created_at));
+      const values = feeds.map(f => parseFloat(f[CURRENT_FIELD]) || 0);
+
+      updateChart(labels, values, data);
+      updateStatistics(values, data.statistics);
+
+      // Update timestamp
+      const tsEl = document.getElementById('last-update-graph');
+      if (tsEl) tsEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+      showLoadingIndicator(false);
+      isLoading = false;
+      STATE.retryCount = 0;
+      STATE.lastSuccessfulUpdate = new Date();
+    })
+    .catch(err => {
+      console.error('Fetch error:', err);
+      handleFetchError(err, period);
+    });
+}
+
+// ── Error handling ────────────────────────────────────────
+function handleFetchError(err, period) {
+  STATE.retryCount++;
+  isLoading = false;
+  showLoadingIndicator(false);
+
+  if (STATE.retryCount <= CONFIG.maxRetries) {
+    setTimeout(() => fetchData_period(period), CONFIG.retryDelay);
+  } else {
+    showChartError(`Failed after ${CONFIG.maxRetries} attempts: ${err.message}`);
+  }
 }
 
 function retryFetch() {
-    STATE.retryCount = 0;
-    const errorEl = document.querySelector('.error-message');
-    if (errorEl) errorEl.remove();
-    
-    const canvas = document.getElementById('graphCanvas');
-    canvas.style.display = 'block';
-    
-    fetchData_period(currentPeriod);
+  STATE.retryCount = 0;
+  fetchData_period(currentPeriod);
 }
 
-function updateChart(labels, values, data = {}) {
-    console.log('Updating chart with:', { labels: labels.length, values: values.length, data });
-    
-    const canvas = document.getElementById('graphCanvas');
-    if (!canvas) {
-        console.error('Canvas element not found');
-        return;
-    }
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        console.error('Could not get canvas context');
-        return;
-    }
-    
-    if (chart) {
-        console.log('Destroying existing chart');
-        chart.destroy();
-    }
-
-    canvas.style.display = 'block';
-    
-    // Hide any error messages
-    const errorEl = document.querySelector('.error-message');
-    if (errorEl) errorEl.style.display = 'none';
-    
-    // Get the label for the current field
-    const fieldLabel = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
-    console.log('Field label:', fieldLabel);
-    
-    // Determine chart color based on thresholds
-    let borderColor = 'rgba(0, 212, 255, 1)';
-    let backgroundColor = 'rgba(0, 212, 255, 0.1)';
-    
-    if (data.thresholds && values.length > 0) {
-        const latestValue = values[values.length - 1];
-        if (latestValue > data.thresholds.critical) {
-            borderColor = 'rgba(255, 0, 110, 1)';
-            backgroundColor = 'rgba(255, 0, 110, 0.1)';
-        } else if (latestValue > data.thresholds.warning) {
-            borderColor = 'rgba(255, 159, 28, 1)';
-            backgroundColor = 'rgba(255, 159, 28, 0.1)';
-        }
-    }
-    
-    console.log('Creating new chart...');
-    try {
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: fieldLabel,
-                    data: values,
-                    borderColor: borderColor,
-                    backgroundColor: backgroundColor,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 5,
-                    pointBackgroundColor: borderColor,
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointHoverRadius: 7
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: CONFIG.chartAnimationDuration
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: 'rgba(255, 255, 255, 0.8)',
-                            font: { size: 12, weight: 'bold' }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(10, 14, 39, 0.9)',
-                        titleColor: '#00d4ff',
-                        bodyColor: 'rgba(255, 255, 255, 0.8)',
-                        borderColor: 'rgba(0, 212, 255, 0.5)',
-                        borderWidth: 1,
-                        callbacks: {
-                            afterBody: function(context) {
-                                if (data.thresholds) {
-                                    return [
-                                        `Warning: ${data.thresholds.warning}`,
-                                        `Critical: ${data.thresholds.critical}`
-                                    ];
-                                }
-                                return [];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: 'rgba(255, 255, 255, 0.7)' }
-                    },
-                    x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: 'rgba(255, 255, 255, 0.7)' }
-                    }
-                }
-            }
-        });
-        console.log('Chart created successfully');
-    } catch (error) {
-        console.error('Error creating chart:', error);
-        showError(`Failed to create chart: ${error.message}`);
-    }
-}
-function updateStatistics(values, serverStats = null) {
-    if (values.length === 0) {
-        updateStatElement('current-value', 'No data');
-        updateStatElement('average-value', 'No data');
-        updateStatElement('data-points', '0');
-        return;
-    }
-    
-    // Use server-provided statistics if available, otherwise calculate locally
-    let stats;
-    if (serverStats && serverStats.average !== undefined) {
-        stats = serverStats;
-    } else {
-        const currentValue = values[values.length - 1];
-        const average = (values.reduce((a, b) => a + b, 0) / values.length);
-        stats = {
-            average: average,
-            min: Math.min(...values),
-            max: Math.max(...values),
-            count: values.length
-        };
-    }
-    
-    const currentValue = values[values.length - 1];
-    
-    updateStatElement('current-value', currentValue.toFixed(2));
-    updateStatElement('average-value', stats.average.toFixed(2));
-    updateStatElement('data-points', stats.count || values.length);
-    
-    // Add min/max if available
-    const minMaxEl = document.getElementById('min-max-values');
-    if (minMaxEl && stats.min !== undefined && stats.max !== undefined) {
-        minMaxEl.innerHTML = `
-            <small class="text-muted">
-                Min: ${stats.min.toFixed(2)} | Max: ${stats.max.toFixed(2)}
-            </small>
-        `;
-    }
-}
-
-function updateStatElement(id, value) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.textContent = value;
-        
-        // Add animation class
-        element.classList.add('stat-updated');
-        setTimeout(() => element.classList.remove('stat-updated'), 300);
-    }
-}
-
-function extractISTTime(utcTimestamp) {
-    try {
-        const utcDate = new Date(utcTimestamp);
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        const istDate = new Date(utcDate.getTime() + istOffset);
-
-        const hours = String(istDate.getUTCHours()).padStart(2, '0');
-        const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
-        const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
-
-        return `${hours}:${minutes}:${seconds}`;
-    } catch (error) {
-        console.error('Error converting time:', error);
-        return '--:--:--';
-    }
-}
-
-function showLoadingIndicator(show) {
-    const indicator = document.getElementById('loading-indicator');
-    if (indicator) {
-        indicator.style.display = show ? 'flex' : 'none';
-    }
-    const canvas = document.getElementById('graphCanvas');
-    if (canvas) {
-        canvas.style.display = show ? 'none' : 'block';
-    }
-}
-
-// Export functionality
+// ── Export ────────────────────────────────────────────────
 function exportCurrentData() {
-    const url = `/export/${CURRENT_FIELD}/${currentPeriod}`;
-    
-    // Create a temporary link to trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${CURRENT_FIELD}_${currentPeriod}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    console.log('Export started for', CURRENT_FIELD, currentPeriod);
+  const link = document.createElement('a');
+  link.href     = `/export/${CURRENT_FIELD}/${currentPeriod}`;
+  link.download = `${CURRENT_FIELD}_${currentPeriod}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
-// Debug functions
+// ── Debug helpers (kept for compat) ──────────────────────
 function toggleDebug() {
-    const debugInfo = document.getElementById('debug-info');
-    if (debugInfo.style.display === 'none') {
-        debugInfo.style.display = 'block';
-        updateDebugInfo();
-    } else {
-        debugInfo.style.display = 'none';
-    }
+  const el = document.getElementById('debug-info');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el.style.display === 'block') {
+    document.getElementById('debug-field-label').textContent = FIELD_LABELS[CURRENT_FIELD] || '?';
+    document.getElementById('debug-chartjs').textContent = typeof Chart !== 'undefined' ? 'Loaded' : 'Missing';
+    document.getElementById('debug-canvas').textContent = document.getElementById('graphCanvas') ? 'Found' : 'Missing';
+  }
 }
 
-function updateDebugInfo() {
-    const fieldLabel = document.getElementById('debug-field-label');
-    const chartjsStatus = document.getElementById('debug-chartjs');
-    const canvasStatus = document.getElementById('debug-canvas');
-    
-    if (fieldLabel) {
-        fieldLabel.textContent = FIELD_LABELS[CURRENT_FIELD] || 'Unknown';
+// ── Hamburger nav ─────────────────────────────────────────
+function initHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const open = document.body.classList.toggle('nav-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.navbar')) {
+      document.body.classList.remove('nav-open');
+      btn.setAttribute('aria-expanded', 'false');
     }
-    
-    if (chartjsStatus) {
-        chartjsStatus.textContent = typeof Chart !== 'undefined' ? 'Yes' : 'No';
-        chartjsStatus.style.color = typeof Chart !== 'undefined' ? 'green' : 'red';
-    }
-    
-    if (canvasStatus) {
-        const canvas = document.getElementById('graphCanvas');
-        canvasStatus.textContent = canvas ? 'Found' : 'Not Found';
-        canvasStatus.style.color = canvas ? 'green' : 'red';
-    }
+  });
 }
 
+// ── Init ──────────────────────────────────────────────────
 function initializeGraphPage() {
-    console.log('DOM loaded - Graph page initialized for field:', CURRENT_FIELD);
-    
-    // Update debug info
-    updateDebugInfo();
-    
-    // Check if required elements exist
-    const canvas = document.getElementById('graphCanvas');
-    const loadingIndicator = document.getElementById('loading-indicator');
-    
-    if (!canvas) {
-        console.error('Canvas element not found!');
-        showError('Canvas element not found. Please refresh the page.');
-        return;
+  console.log('[RPi Monitor] Graph page — field:', CURRENT_FIELD);
+
+  if (typeof Chart === 'undefined') {
+    showChartError('Chart.js failed to load. Please refresh.');
+    return;
+  }
+
+  initHamburger();
+  setPageTitle();
+
+  // Segmented control events
+  const segmentGroup = document.querySelector('.segment-group');
+  if (segmentGroup) {
+    segmentGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-period]');
+      if (btn) fetchData_period(btn.getAttribute('data-period'));
+    });
+  }
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'r') { e.preventDefault(); STATE.retryCount = 0; fetchData_period(currentPeriod); }
+      if (e.key === 'e') { e.preventDefault(); exportCurrentData(); }
     }
-    
-    if (!loadingIndicator) {
-        console.error('Loading indicator not found!');
-    }
-    
-    // Check if Chart.js is loaded
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded!');
-        showError('Chart.js library failed to load. Please refresh the page.');
-        return;
-    }
-    
-    // Set up event listeners for time range buttons
-    const timeRangeContainer = document.querySelector('.time-range-container');
-    if (timeRangeContainer) {
-        timeRangeContainer.addEventListener('click', function(e) {
-            const button = e.target.closest('button[data-period]');
-            if (button) {
-                const period = button.getAttribute('data-period');
-                console.log('Button clicked for period:', period);
-                fetchData_period(period);
-            }
-        });
-        console.log('Event listeners set up for time range buttons');
-    } else {
-        console.error('Time range container not found!');
-    }
-    
-    console.log('All required elements found, starting initial fetch...');
-    
-    // Add a small delay to ensure everything is ready
-    setTimeout(() => {
-        fetchData_period('live');
-    }, 100);
+  });
+
+  // Initial load
+  setTimeout(() => fetchData_period('live'), 80);
 }
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-            case 'r':
-                e.preventDefault();
-                STATE.retryCount = 0;
-                fetchData_period(currentPeriod);
-                break;
-            case 'e':
-                e.preventDefault();
-                exportCurrentData();
-                break;
-        }
-    }
-});
-
-// Initialize on page load
+// ── Boot ──────────────────────────────────────────────────
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeGraphPage);
+  document.addEventListener('DOMContentLoaded', initializeGraphPage);
 } else {
-    initializeGraphPage();
+  initializeGraphPage();
 }

@@ -1,207 +1,287 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Monitor Dashboard</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Raspberry Pi real-time system monitoring dashboard — CPU, memory, disk, temperature, network, and uptime at a glance.">
+  <title>RPi Monitor — System Dashboard</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <!-- Styles -->
+  <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar-custom">
-        <div class="container-fluid">
-            <span class="navbar-brand">
-                <i class="fas fa-server"></i> System Monitor
-            </span>
-            <div class="nav-info text-muted" style="font-size: 0.9rem;">
-                <span id="connection-status" class="status-indicator healthy" title="API Connection Status"></span>
-                <span id="last-update">Last update: --:--:--</span>
-                <span id="refresh-countdown" class="ml-2">Next update in 5s</span>
-                <button id="refresh-btn" class="btn btn-sm btn-outline-light ml-2" title="Refresh data now">
-                    <i class="fas fa-sync"></i> Refresh
-                </button>
-            </div>
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════ -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <a href="/" class="nav-logo" aria-label="RPi Monitor home">
+    <div class="nav-logo-icon" aria-hidden="true">
+      <i class="fas fa-microchip"></i>
+    </div>
+    <span class="nav-logo-text">RPi Monitor <span>/ Dashboard</span></span>
+  </a>
+
+  <div class="nav-divider" aria-hidden="true"></div>
+
+  <!-- Status -->
+  <div class="nav-status" aria-live="polite" aria-label="Connection status">
+    <span id="connection-status" class="status-dot" title="API connection status"></span>
+    <span id="connection-status-text">Connecting…</span>
+  </div>
+
+  <!-- Desktop nav controls -->
+  <div class="nav-collapse" id="nav-collapse">
+    <div class="nav-meta">
+      <span id="health-badge" class="health-badge" aria-label="System health score">
+        <i class="fas fa-circle-check" aria-hidden="true"></i>
+        <span id="health-score-text">Checking…</span>
+      </span>
+      <span id="last-update" aria-live="polite">—</span>
+      <span id="refresh-countdown" aria-live="polite"></span>
+      <button id="refresh-btn" class="btn-nav" title="Refresh data now (Ctrl+R)" aria-label="Refresh">
+        <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile hamburger -->
+  <button class="nav-hamburger" id="hamburger-btn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-collapse">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+</nav>
+
+<!-- ══ ALERT CONTAINER ═════════════════════════════════════ -->
+<div id="alert-container" role="status" aria-live="polite" aria-label="System alerts"></div>
+
+<!-- ══ MAIN CONTENT ════════════════════════════════════════ -->
+<main class="main" id="main-content">
+  <div class="container">
+
+    <!-- Page Header -->
+    <header class="page-header animate-in">
+      <div>
+        <h1 class="page-title">System Overview</h1>
+        <p class="page-subtitle">Real-time performance metrics from your Raspberry Pi</p>
+      </div>
+    </header>
+
+    <!-- ── METRIC CARDS ──────────────────────────────────── -->
+    <p class="section-label">Live Metrics</p>
+    <section class="metrics-grid" aria-label="System metrics">
+
+      <!-- CPU Temperature -->
+      <article class="metric-card" data-tooltip="Current CPU die temperature" aria-label="CPU Temperature">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-thermometer-half"></i></div>
+          <span id="cpu-temp-status" class="metric-status unknown" title="Status"></span>
         </div>
+        <div class="metric-label">CPU Temp</div>
+        <div class="metric-value" id="cpu-temp">—</div>
+        <div class="metric-secondary" id="cpu-temp-minmax">—</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-cpu-temp"></canvas>
+        </div>
+      </article>
+
+      <!-- CPU Usage -->
+      <article class="metric-card" data-tooltip="CPU utilisation across all cores" aria-label="CPU Usage">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-microchip"></i></div>
+          <span id="cpu-usage-status" class="metric-status unknown" title="Status"></span>
+        </div>
+        <div class="metric-label">CPU Usage</div>
+        <div class="metric-value" id="cpu-usage">—</div>
+        <div class="metric-secondary" id="cpu-usage-minmax">—</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-cpu-usage"></canvas>
+        </div>
+      </article>
+
+      <!-- Memory -->
+      <article class="metric-card" data-tooltip="RAM currently in use" aria-label="Memory Usage">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-memory"></i></div>
+          <span id="mem-usage-status" class="metric-status unknown" title="Status"></span>
+        </div>
+        <div class="metric-label">Memory</div>
+        <div class="metric-value" id="mem-usage">—</div>
+        <div class="metric-secondary" id="mem-usage-minmax">—</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-mem-usage"></canvas>
+        </div>
+      </article>
+
+      <!-- Disk -->
+      <article class="metric-card" data-tooltip="Disk space consumed" aria-label="Disk Usage">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-hard-drive"></i></div>
+          <span id="disk-usage-status" class="metric-status unknown" title="Status"></span>
+        </div>
+        <div class="metric-label">Disk Used</div>
+        <div class="metric-value" id="disk-usage">—</div>
+        <div class="metric-secondary" id="disk-usage-minmax">—</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-disk-usage"></canvas>
+        </div>
+      </article>
+
+      <!-- Network -->
+      <article class="metric-card" data-tooltip="Network bytes sent / received" aria-label="Network I/O">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-network-wired"></i></div>
+          <span class="metric-status healthy" title="Network active"></span>
+        </div>
+        <div class="metric-label">Network I/O</div>
+        <div class="metric-value" id="net-sent">—</div>
+        <div class="metric-secondary" id="net-recv">↓ —</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-network"></canvas>
+        </div>
+      </article>
+
+      <!-- Uptime -->
+      <article class="metric-card" data-tooltip="Time since last system reboot" aria-label="System Uptime">
+        <div class="metric-card-header">
+          <div class="metric-icon" aria-hidden="true"><i class="fas fa-clock"></i></div>
+          <span class="metric-status healthy" title="System running"></span>
+        </div>
+        <div class="metric-label">Uptime</div>
+        <div id="uptime" class="metric-value">—</div>
+        <div class="metric-secondary">hrs : min : sec</div>
+        <div class="sparkline-container" aria-hidden="true">
+          <canvas id="spark-uptime"></canvas>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ── REAL-TIME CHARTS ──────────────────────────────── -->
+    <p class="section-label" style="margin-top: 8px;">Real-Time Charts</p>
+    <section class="charts-grid" aria-label="Real-time performance charts">
+
+      <!-- CPU Temperature Chart -->
+      <div class="chart-card animate-in">
+        <div class="chart-card-header">
+          <div class="chart-title">
+            <i class="fas fa-thermometer-half" aria-hidden="true"></i>
+            CPU Temperature
+          </div>
+          <div class="chart-actions">
+            <button class="btn btn-sm btn-icon" onclick="exportData('field1')" title="Export CPU temperature data" aria-label="Export CPU temperature CSV">
+              <i class="fas fa-download" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="cpuTempChart" aria-label="CPU Temperature trend chart" role="img"></canvas>
+        </div>
+      </div>
+
+      <!-- CPU Usage Chart -->
+      <div class="chart-card animate-in">
+        <div class="chart-card-header">
+          <div class="chart-title">
+            <i class="fas fa-microchip" aria-hidden="true"></i>
+            CPU Usage
+          </div>
+          <div class="chart-actions">
+            <button class="btn btn-sm btn-icon" onclick="exportData('field3')" title="Export CPU usage data" aria-label="Export CPU usage CSV">
+              <i class="fas fa-download" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="cpuUsageChart" aria-label="CPU Usage trend chart" role="img"></canvas>
+        </div>
+      </div>
+
+      <!-- Memory Chart -->
+      <div class="chart-card animate-in">
+        <div class="chart-card-header">
+          <div class="chart-title">
+            <i class="fas fa-memory" aria-hidden="true"></i>
+            Memory Usage
+          </div>
+          <div class="chart-actions">
+            <button class="btn btn-sm btn-icon" onclick="exportData('field4')" title="Export memory usage data" aria-label="Export memory usage CSV">
+              <i class="fas fa-download" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="memUsageChart" aria-label="Memory Usage trend chart" role="img"></canvas>
+        </div>
+      </div>
+
+      <!-- Disk Chart -->
+      <div class="chart-card animate-in">
+        <div class="chart-card-header">
+          <div class="chart-title">
+            <i class="fas fa-hard-drive" aria-hidden="true"></i>
+            Disk Usage
+          </div>
+          <div class="chart-actions">
+            <button class="btn btn-sm btn-icon" onclick="exportData('field5')" title="Export disk usage data" aria-label="Export disk usage CSV">
+              <i class="fas fa-download" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="diskUsageChart" aria-label="Disk Usage trend chart" role="img"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── DETAILED ANALYSIS ─────────────────────────────── -->
+    <p class="section-label">Detailed Analysis</p>
+    <nav class="analysis-grid" aria-label="Detailed analysis links">
+      <a href="/graph/field1" class="analysis-link" id="link-field1">
+        <i class="fas fa-thermometer-half" aria-hidden="true"></i> CPU Temperature
+      </a>
+      <a href="/graph/field2" class="analysis-link" id="link-field2">
+        <i class="fas fa-fan" aria-hidden="true"></i> GPU Temperature
+      </a>
+      <a href="/graph/field3" class="analysis-link" id="link-field3">
+        <i class="fas fa-gauge-high" aria-hidden="true"></i> CPU Usage
+      </a>
+      <a href="/graph/field4" class="analysis-link" id="link-field4">
+        <i class="fas fa-memory" aria-hidden="true"></i> Memory Usage
+      </a>
+      <a href="/graph/field5" class="analysis-link" id="link-field5">
+        <i class="fas fa-hard-drive" aria-hidden="true"></i> Disk Usage
+      </a>
+      <a href="/graph/field8" class="analysis-link" id="link-field8">
+        <i class="fas fa-clock" aria-hidden="true"></i> System Uptime
+      </a>
     </nav>
 
-    <!-- Main Container -->
-    <div class="container-fluid px-4 py-5">
-        <!-- Header Section -->
-        <div class="text-center mb-5 animate-in">
-            <h1><i class="fas fa-tachometer-alt"></i> System Dashboard</h1>
-            <p class="text-secondary" style="font-size: 1.1rem;">Real-time monitoring and performance tracking</p>
-        </div>
+  </div><!-- /container -->
+</main>
 
-        <!-- System Status Cards -->
-        <div class="row mb-5">
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="data-card animate-in" data-tooltip="Current CPU temperature reading">
-                    <div class="card-label"><i class="fas fa-thermometer-half"></i> CPU Temperature</div>
-                    <div class="card-value" id="cpu-temp">--°C</div>
-                    <small class="status-indicator healthy" id="cpu-temp-status"></small>
-                    <small class="text-secondary">CPU</small>
-                    <div class="card-minmax" id="cpu-temp-minmax"></div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="data-card animate-in" data-tooltip="Current CPU usage percentage">
-                    <div class="card-label"><i class="fas fa-microchip"></i> CPU Usage</div>
-                    <div class="card-value" id="cpu-usage">--%</div>
-                    <small class="status-indicator healthy" id="cpu-usage-status"></small>
-                    <small class="text-secondary">Load</small>
-                    <div class="card-minmax" id="cpu-usage-minmax"></div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="data-card animate-in" data-tooltip="Current memory usage in GB">
-                    <div class="card-label"><i class="fas fa-memory"></i> Memory Usage</div>
-                    <div class="card-value" id="mem-usage">-- GB</div>
-                    <small class="status-indicator healthy" id="mem-usage-status"></small>
-                    <small class="text-secondary">RAM</small>
-                    <div class="card-minmax" id="mem-usage-minmax"></div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="data-card animate-in" data-tooltip="Current disk usage in GB">
-                    <div class="card-label"><i class="fas fa-database"></i> Disk Usage</div>
-                    <div class="card-value" id="disk-usage">-- GB</div>
-                    <small class="status-indicator healthy" id="disk-usage-status"></small>
-                    <small class="text-secondary">Storage</small>
-                    <div class="card-minmax" id="disk-usage-minmax"></div>
-                </div>
-            </div>
-        </div>
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-indicator" aria-live="polite" aria-label="Loading data">
+  <div class="spinner" aria-hidden="true"></div>
+  <span>Updating…</span>
+</div>
 
-        <!-- System Uptime Section -->
-        <div class="row mb-5">
-            <div class="col-12 col-md-6 col-lg-3 mx-auto">
-                <div class="data-card text-center animate-in" data-tooltip="System uptime in hours:minutes:seconds">
-                    <div class="card-label"><i class="fas fa-clock"></i> System Uptime</div>
-                    <div class="sci-fi" id="uptime">--:--:--</div>
-                    <small class="text-secondary">Hours:Minutes:Seconds</small>
-                </div>
-            </div>
-        </div>
+<!-- Keyboard shortcuts hint -->
+<div class="shortcuts-bar" role="note" aria-label="Keyboard shortcuts">
+  <i class="fas fa-keyboard" aria-hidden="true"></i>
+  <kbd>Ctrl+R</kbd> Refresh &nbsp;·&nbsp; <kbd>Ctrl+Space</kbd> Pause
+</div>
 
-        <!-- Alert Container -->
-        <div id="alert-container" class="alert-container mb-4"></div>
-
-        <!-- Charts Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2 style="margin-top: 3rem; margin-bottom: 1.5rem;">
-                    <i class="fas fa-chart-line"></i> Real-Time Charts
-                </h2>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12 col-lg-6">
-                <div class="card animate-in">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-thermometer-half"></i> CPU Temperature Trend</h5>
-                        <button class="btn btn-sm btn-outline-light" onclick="exportData('field1')" title="Export CPU temperature data">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="cpuTempChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6">
-                <div class="card animate-in">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-microchip"></i> CPU Usage Trend</h5>
-                        <button class="btn btn-sm btn-outline-light" onclick="exportData('field3')" title="Export CPU usage data">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="cpuUsageChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12 col-lg-6">
-                <div class="card animate-in">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-memory"></i> Memory Usage Trend</h5>
-                        <button class="btn btn-sm btn-outline-light" onclick="exportData('field4')" title="Export memory usage data">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="memUsageChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6">
-                <div class="card animate-in">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-database"></i> Disk Usage Trend</h5>
-                        <button class="btn btn-sm btn-outline-light" onclick="exportData('field5')" title="Export disk usage data">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="diskUsageChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Detailed View Buttons -->
-        <div class="row mt-5 mb-4">
-            <div class="col-12">
-                <h2 style="margin-bottom: 1.5rem;">
-                    <i class="fas fa-binoculars"></i> Detailed Analysis
-                </h2>
-            </div>
-        </div>
-
-        <div class="btn-group-custom">
-            <a href="/graph/field1" class="btn btn-primary">
-                <i class="fas fa-thermometer-half"></i> CPU Temperature
-            </a>
-            <a href="/graph/field2" class="btn btn-primary">
-                <i class="fas fa-fan"></i> GPU Temperature
-            </a>
-            <a href="/graph/field3" class="btn btn-primary">
-                <i class="fas fa-tachometer-alt"></i> CPU Usage
-            </a>
-            <a href="/graph/field4" class="btn btn-primary">
-                <i class="fas fa-memory"></i> Memory Usage
-            </a>
-            <a href="/graph/field5" class="btn btn-primary">
-                <i class="fas fa-database"></i> Disk Usage
-            </a>
-            <a href="/graph/field8" class="btn btn-primary">
-                <i class="fas fa-clock"></i> System Uptime
-            </a>
-        </div>
-    </div>
-
-    <!-- Loading Indicator -->
-    <div class="loading-text" id="loading-indicator" style="display: none;">
-        <div class="loading-spinner"></div>
-        <span>Updating data...</span>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
 </html>

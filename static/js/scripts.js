@@ -1,675 +1,627 @@
-// Enhanced configuration and state management
+/* ============================================================
+   RPi Monitor — Dashboard Script (scripts.js)
+   Handles: data fetching, metric cards, sparklines,
+            main charts, alerts, health score, countdown
+   ============================================================ */
+
+'use strict';
+
+// ── Configuration ──────────────────────────────────────────
 const CONFIG = {
-    refreshInterval: 5000, // 5 seconds
-    maxRetries: 3,
-    retryDelay: 2000, // 2 seconds
-    alertTimeout: 6000, // 6 seconds
-    chartAnimationDuration: 750
+  refreshInterval: 5000,
+  maxRetries: 3,
+  retryDelay: 2000,
+  alertTimeout: 6000,
+  chartAnimationDuration: 600,
+  sparklinePoints: 15,
 };
 
 const STATE = {
-    isOnline: true,
-    retryCount: 0,
-    lastSuccessfulUpdate: null,
-    refreshCountdown: 5,
-    isPaused: false
+  isOnline: true,
+  retryCount: 0,
+  lastSuccessfulUpdate: null,
+  refreshCountdown: 5,
+  isPaused: false,
 };
 
-const charts = {
-    cpuTemp: createChart('cpuTempChart', 'CPU Temperature (°C)', 'line'),
-    cpuUsage: createChart('cpuUsageChart', 'CPU Usage (%)', 'line'),
-    memUsage: createChart('memUsageChart', 'Memory Usage (GB)', 'line'),
-    diskUsage: createChart('diskUsageChart', 'Disk Usage (GB)', 'line')
+// ── Sparkline history ──────────────────────────────────────
+const sparkHistory = {
+  field1: [], // CPU Temp
+  field3: [], // CPU Usage
+  field4: [], // Memory
+  field5: [], // Disk
+  field6: [], // Bytes Sent
+  field8: [], // Uptime
 };
 
-// Tracking for min/max values
+// ── Min/Max tracking ───────────────────────────────────────
 const valueTracking = {
-    field1: { min: Infinity, max: -Infinity },
-    field3: { min: Infinity, max: -Infinity },
-    field4: { min: Infinity, max: -Infinity },
-    field5: { min: Infinity, max: -Infinity }
+  field1: { min: Infinity, max: -Infinity },
+  field3: { min: Infinity, max: -Infinity },
+  field4: { min: Infinity, max: -Infinity },
+  field5: { min: Infinity, max: -Infinity },
 };
 
-// Alert state
 let lastAlertCheck = {};
 
-function createChart(canvasId, label, type) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) {
-        console.error(`Canvas element ${canvasId} not found`);
-        return null;
-    }
-    
-    return new Chart(ctx.getContext('2d'), {
-        type: type,
-        data: {
-            labels: [],
-            datasets: [{
-                label: label,
-                data: [],
-                borderColor: 'rgba(0, 212, 255, 1)',
-                backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: 'rgba(0, 212, 255, 1)',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2
-            }]
+// ── Chart.js global defaults ───────────────────────────────
+Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = 'hsl(215, 20%, 64%)';
+
+// ── Shared Chart.js config factory ─────────────────────────
+function getChartDefaults(ctx, label, color) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+  gradient.addColorStop(0, color.replace(')', ', 0.25)').replace('hsl', 'hsla'));
+  gradient.addColorStop(1, color.replace(')', ', 0)').replace('hsl', 'hsla'));
+
+  return {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label,
+        data: [],
+        borderColor: color,
+        backgroundColor: gradient,
+        borderWidth: 1.5,
+        fill: true,
+        tension: 0.45,
+        pointRadius: 2.5,
+        pointHoverRadius: 5,
+        pointBackgroundColor: color,
+        pointBorderColor: 'hsl(222, 47%, 4%)',
+        pointBorderWidth: 1.5,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: CONFIG.chartAnimationDuration, easing: 'easeInOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'hsl(222, 40%, 9%)',
+          titleColor: 'hsl(210, 36%, 96%)',
+          bodyColor: 'hsl(215, 20%, 64%)',
+          borderColor: 'hsl(222, 28%, 18%)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+          titleFont: { weight: '600', size: 12 },
+          bodyFont: { size: 11 },
+          callbacks: {
+            title: (items) => items[0]?.label || '',
+            label: (ctx) => `  ${ctx.parsed.y.toFixed(2)}`,
+          },
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-                duration: CONFIG.chartAnimationDuration
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        font: { size: 12, weight: 'bold' }
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(10, 14, 39, 0.9)',
-                    titleColor: '#00d4ff',
-                    bodyColor: 'rgba(255, 255, 255, 0.8)',
-                    borderColor: 'rgba(0, 212, 255, 0.5)',
-                    borderWidth: 1
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
-                },
-                x: {
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
-                }
-            }
-        }
-    });
+      },
+      scales: {
+        x: {
+          grid: { color: 'hsla(222, 28%, 15%, 0.6)', drawBorder: false },
+          ticks: { maxRotation: 0, maxTicksLimit: 6, font: { size: 10 } },
+          border: { display: false },
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: 'hsla(222, 28%, 15%, 0.6)', drawBorder: false },
+          ticks: { maxTicksLimit: 5, font: { size: 10 } },
+          border: { display: false },
+        },
+      },
+    },
+  };
 }
 
+// ── Initialize main charts ─────────────────────────────────
+function initChart(canvasId, label, color) {
+  const el = document.getElementById(canvasId);
+  if (!el) return null;
+  const ctx = el.getContext('2d');
+  return new Chart(ctx, getChartDefaults(ctx, label, color));
+}
+
+const charts = {
+  cpuTemp:  initChart('cpuTempChart',  'CPU Temperature (°C)', 'hsl(196, 80%, 48%)'),
+  cpuUsage: initChart('cpuUsageChart', 'CPU Usage (%)',          'hsl(152, 60%, 48%)'),
+  memUsage: initChart('memUsageChart', 'Memory Usage (GB)',      'hsl(38, 90%, 58%)'),
+  diskUsage:initChart('diskUsageChart','Disk Usage (GB)',         'hsl(196, 70%, 62%)'),
+};
+
+// ── Sparkline chart factory ────────────────────────────────
+const sparkCharts = {};
+
+function initSparkline(canvasId, color) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const ctx = el.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 32);
+  grad.addColorStop(0, color.replace(')', ', 0.3)').replace('hsl', 'hsla'));
+  grad.addColorStop(1, color.replace(')', ', 0)').replace('hsl', 'hsla'));
+
+  sparkCharts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: color,
+        backgroundColor: grad,
+        borderWidth: 1,
+        fill: true,
+        tension: 0.45,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: { display: false, beginAtZero: false },
+      },
+    },
+  });
+}
+
+initSparkline('spark-cpu-temp',  'hsl(196, 80%, 48%)');
+initSparkline('spark-cpu-usage', 'hsl(152, 60%, 48%)');
+initSparkline('spark-mem-usage', 'hsl(38, 90%, 58%)');
+initSparkline('spark-disk-usage','hsl(196, 70%, 62%)');
+initSparkline('spark-network',   'hsl(270, 60%, 65%)');
+initSparkline('spark-uptime',    'hsl(152, 60%, 48%)');
+
+function updateSparkline(canvasId, data) {
+  const chart = sparkCharts[canvasId];
+  if (!chart) return;
+  chart.data.labels = data.map((_, i) => i);
+  chart.data.datasets[0].data = data;
+  chart.update('none');
+}
+
+// ── Countdown ──────────────────────────────────────────────
 function updateRefreshCountdown() {
-    if (STATE.isPaused) return;
-    
-    STATE.refreshCountdown--;
-    const countdownEl = document.getElementById('refresh-countdown');
-    if (countdownEl) {
-        if (STATE.refreshCountdown > 0) {
-            countdownEl.textContent = `Next update in ${STATE.refreshCountdown}s`;
-            countdownEl.className = 'ml-2';
-        } else {
-            countdownEl.textContent = 'Updating...';
-            countdownEl.className = 'ml-2 text-warning';
-            STATE.refreshCountdown = 5; // Reset for next cycle
-        }
-    }
+  if (STATE.isPaused) return;
+  STATE.refreshCountdown = Math.max(0, STATE.refreshCountdown - 1);
+  const el = document.getElementById('refresh-countdown');
+  if (!el) return;
+  if (STATE.refreshCountdown > 0) {
+    el.textContent = `${STATE.refreshCountdown}s`;
+  } else {
+    el.textContent = '…';
+    STATE.refreshCountdown = 5;
+  }
 }
 
+// ── Connection status ──────────────────────────────────────
 function updateConnectionStatus(isConnected, message = '') {
-    const statusEl = document.getElementById('connection-status');
-    if (!statusEl) return;
-    
-    STATE.isOnline = isConnected;
-    statusEl.className = `status-indicator ${isConnected ? 'healthy' : 'critical'}`;
-    statusEl.title = isConnected ? 'Connected to API' : `Connection Error: ${message}`;
-    
-    if (isConnected) {
-        STATE.retryCount = 0;
-        STATE.lastSuccessfulUpdate = new Date();
-    }
+  STATE.isOnline = isConnected;
+  const dot  = document.getElementById('connection-status');
+  const text = document.getElementById('connection-status-text');
+
+  if (dot) {
+    dot.className = `status-dot ${isConnected ? 'healthy' : 'critical'}`;
+    dot.title = isConnected ? 'Connected to ThingSpeak API' : `Error: ${message}`;
+  }
+  if (text) {
+    text.textContent = isConnected ? 'Connected' : 'Offline';
+  }
+
+  if (isConnected) {
+    STATE.retryCount = 0;
+    STATE.lastSuccessfulUpdate = new Date();
+  }
 }
+
+// ── Health score ───────────────────────────────────────────
+function computeHealthScore(latestFeed) {
+  const checks = [
+    { value: parseFloat(latestFeed.field1), warn: 50, crit: 60 },  // CPU Temp
+    { value: parseFloat(latestFeed.field3), warn: 70, crit: 90 },  // CPU Usage
+    { value: parseFloat(latestFeed.field4), warn: 4,  crit: 6  },  // Memory
+    { value: parseFloat(latestFeed.field5), warn: 100,crit: 200},  // Disk
+  ];
+
+  let penalty = 0;
+  for (const c of checks) {
+    if (isNaN(c.value)) continue;
+    if (c.value >= c.crit) penalty += 30;
+    else if (c.value >= c.warn) penalty += 12;
+  }
+
+  return Math.max(0, 100 - penalty);
+}
+
+function updateHealthBadge(score) {
+  const badge = document.getElementById('health-badge');
+  const text  = document.getElementById('health-score-text');
+  if (!badge || !text) return;
+
+  badge.className = 'health-badge';
+  if (score >= 80) {
+    badge.classList.add('score-high');
+    text.textContent = `Healthy ${score}`;
+  } else if (score >= 50) {
+    badge.classList.add('score-medium');
+    text.textContent = `Degraded ${score}`;
+  } else {
+    badge.classList.add('score-low');
+    text.textContent = `Critical ${score}`;
+  }
+}
+
+// ── Alert system ───────────────────────────────────────────
+const ALERT_ICONS = {
+  critical: 'fa-triangle-exclamation',
+  warning:  'fa-circle-exclamation',
+  ok:       'fa-circle-check',
+  info:     'fa-circle-info',
+  error:    'fa-circle-xmark',
+};
 
 function showAlert(message, type = 'info', fieldId = null, autoHide = true) {
-    const alertContainer = document.getElementById('alert-container');
-    if (!alertContainer) return;
+  const container = document.getElementById('alert-container');
+  if (!container) return;
 
-    // Remove existing alert for the same field
-    if (fieldId) {
-        const existingAlert = alertContainer.querySelector(`[data-field="${fieldId}"]`);
-        if (existingAlert) {
-            existingAlert.remove();
-        }
-    }
+  if (fieldId) {
+    const existing = container.querySelector(`[data-field="${fieldId}"]`);
+    if (existing) existing.remove();
+  }
 
-    const alertEl = document.createElement('div');
-    alertEl.className = `alert alert-${type} alert-dismissible fade show`;
-    if (fieldId) alertEl.setAttribute('data-field', fieldId);
-    
-    alertEl.innerHTML = `
-        <div class="d-flex align-items-center">
-            <i class="fas fa-${getAlertIcon(type)} mr-2"></i>
-            <span>${message}</span>
-            <button type="button" class="close ml-auto" data-dismiss="alert">
-                <span>&times;</span>
-            </button>
-        </div>
-    `;
-    
-    alertContainer.appendChild(alertEl);
-    
-    // Auto-remove after timeout
-    if (autoHide) {
-        setTimeout(() => {
-            if (alertEl.parentNode) {
-                alertEl.classList.remove('show');
-                setTimeout(() => alertEl.remove(), 300);
-            }
-        }, CONFIG.alertTimeout);
-    }
+  const el = document.createElement('div');
+  el.className = `alert alert-${type}`;
+  if (fieldId) el.setAttribute('data-field', fieldId);
+  el.innerHTML = `
+    <i class="fas ${ALERT_ICONS[type] || ALERT_ICONS.info}" aria-hidden="true"></i>
+    <span>${message}</span>
+    <button class="alert-close" aria-label="Dismiss">&times;</button>
+  `;
+
+  el.querySelector('.alert-close').addEventListener('click', () => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(24px)';
+    el.style.transition = 'all 150ms ease';
+    setTimeout(() => el.remove(), 160);
+  });
+
+  container.appendChild(el);
+
+  if (autoHide) {
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(24px)';
+      el.style.transition = 'all 150ms ease';
+      setTimeout(() => el.remove(), 160);
+    }, CONFIG.alertTimeout);
+  }
 }
 
-function getAlertIcon(type) {
-    const icons = {
-        'critical': 'exclamation-triangle',
-        'warning': 'exclamation-circle',
-        'ok': 'check-circle',
-        'info': 'info-circle',
-        'error': 'times-circle'
-    };
-    return icons[type] || 'info-circle';
-}
-
+// ── Threshold alert checks ─────────────────────────────────
 function checkAlerts(data) {
-    try {
-        const feeds = data.feeds;
-        if (!feeds || feeds.length === 0) return;
-        
-        const latestFeed = feeds[feeds.length - 1];
-        if (!latestFeed) return;
+  try {
+    const feeds = data.feeds;
+    if (!feeds?.length) return;
+    const latest = feeds[feeds.length - 1];
+    if (!latest) return;
 
-        const thresholds = {
-            'field1': { warning: 50, critical: 60, label: 'CPU Temp', unit: '°C' },
-            'field3': { warning: 70, critical: 90, label: 'CPU Usage', unit: '%' },
-            'field4': { warning: 4, critical: 6, label: 'Memory', unit: 'GB' },
-            'field5': { warning: 100, critical: 200, label: 'Disk', unit: 'GB' }
-        };
+    const thresholds = {
+      field1: { warning: 50, critical: 60, label: 'CPU Temp',   unit: '°C' },
+      field3: { warning: 70, critical: 90, label: 'CPU Usage',  unit: '%'  },
+      field4: { warning: 4,  critical: 6,  label: 'Memory',     unit: ' GB'},
+      field5: { warning: 100,critical: 200,label: 'Disk',       unit: ' GB'},
+    };
 
-        for (const [field, config] of Object.entries(thresholds)) {
-            const value = parseFloat(latestFeed[field]);
-            if (isNaN(value)) continue;
+    for (const [field, cfg] of Object.entries(thresholds)) {
+      const val = parseFloat(latest[field]);
+      if (isNaN(val)) continue;
 
-            const currentStatus = lastAlertCheck[field];
-            let newStatus = null;
-            
-            if (value > config.critical) {
-                newStatus = 'critical';
-                if (currentStatus !== 'critical') {
-                    showAlert(
-                        `🔴 CRITICAL: ${config.label} is ${value.toFixed(1)}${config.unit} (threshold: ${config.critical}${config.unit})`,
-                        'critical',
-                        field
-                    );
-                }
-            } else if (value > config.warning) {
-                newStatus = 'warning';
-                if (currentStatus !== 'warning' && currentStatus !== 'critical') {
-                    showAlert(
-                        `🟡 WARNING: ${config.label} is ${value.toFixed(1)}${config.unit} (threshold: ${config.warning}${config.unit})`,
-                        'warning',
-                        field
-                    );
-                }
-            } else {
-                if (currentStatus === 'critical' || currentStatus === 'warning') {
-                    showAlert(
-                        `🟢 OK: ${config.label} returned to normal (${value.toFixed(1)}${config.unit})`,
-                        'ok',
-                        field
-                    );
-                }
-            }
-            
-            lastAlertCheck[field] = newStatus;
-        }
-    } catch (error) {
-        console.error('Error checking alerts:', error);
-        showAlert('Error checking system alerts', 'error');
+      const prev = lastAlertCheck[field];
+      if (val > cfg.critical) {
+        if (prev !== 'critical')
+          showAlert(`🔴 Critical: ${cfg.label} is ${val.toFixed(1)}${cfg.unit} (limit: ${cfg.critical})`, 'critical', field);
+        lastAlertCheck[field] = 'critical';
+      } else if (val > cfg.warning) {
+        if (prev !== 'warning' && prev !== 'critical')
+          showAlert(`🟡 Warning: ${cfg.label} is ${val.toFixed(1)}${cfg.unit} (limit: ${cfg.warning})`, 'warning', field);
+        lastAlertCheck[field] = 'warning';
+      } else {
+        if (prev === 'critical' || prev === 'warning')
+          showAlert(`🟢 Resolved: ${cfg.label} returned to normal (${val.toFixed(1)}${cfg.unit})`, 'ok', field);
+        lastAlertCheck[field] = null;
+      }
     }
+  } catch (err) {
+    console.error('Alert check error:', err);
+  }
+}
+
+// ── Min/max tracking ───────────────────────────────────────
+function trackMinMax(field, value) {
+  if (valueTracking[field] && !isNaN(value)) {
+    valueTracking[field].min = Math.min(valueTracking[field].min, value);
+    valueTracking[field].max = Math.max(valueTracking[field].max, value);
+  }
+}
+
+// ── Smooth animated counter ────────────────────────────────
+function animateValue(element, targetText) {
+  if (!element) return;
+  element.textContent = targetText;
+  element.classList.remove('stat-updated');
+  void element.offsetWidth; // reflow
+  element.classList.add('stat-updated');
+  setTimeout(() => element.classList.remove('stat-updated'), 300);
+}
+
+// ── Update metric cards ────────────────────────────────────
+function updateCard(valueId, statusId, minmaxId, rawValue, unit, field, warnAt, critAt, sparkId) {
+  const valueEl  = document.getElementById(valueId);
+  const statusEl = document.getElementById(statusId);
+  const mmEl     = document.getElementById(minmaxId);
+
+  const num = parseFloat(rawValue);
+  if (isNaN(num)) {
+    if (valueEl) valueEl.textContent = '—';
+    if (statusEl) { statusEl.className = 'metric-status unknown'; statusEl.title = 'No data'; }
+    return;
+  }
+
+  // Format
+  const decimals = unit.includes('GB') ? 2 : 1;
+  const formatted = num.toFixed(decimals) + unit;
+  if (valueEl) {
+    animateValue(valueEl, formatted);
+    valueEl.className = 'metric-value' +
+      (num >= critAt ? ' val-critical' : num >= warnAt ? ' val-warning' : '');
+  }
+
+  // Status dot
+  if (statusEl) {
+    const cls = num >= critAt ? 'critical' : num >= warnAt ? 'warning' : 'healthy';
+    statusEl.className = `metric-status ${cls}`;
+    statusEl.title = cls.charAt(0).toUpperCase() + cls.slice(1);
+  }
+
+  // Min/max label
+  trackMinMax(field, num);
+  if (mmEl) {
+    const t = valueTracking[field];
+    if (t && t.min !== Infinity) {
+      mmEl.textContent = `↓ ${t.min.toFixed(decimals)}${unit}  ↑ ${t.max.toFixed(decimals)}${unit}`;
+    }
+  }
+
+  // Sparkline
+  if (sparkId && sparkHistory[field] !== undefined) {
+    sparkHistory[field].push(num);
+    if (sparkHistory[field].length > CONFIG.sparklinePoints) sparkHistory[field].shift();
+    updateSparkline(sparkId, sparkHistory[field]);
+  }
 }
 
 function updateDataCards(data) {
-    try {
-        const feeds = data.feeds;
-        if (!feeds || feeds.length === 0) {
-            showAlert('No data available from sensors', 'warning');
-            return;
-        }
-        
-        const latestFeed = feeds[feeds.length - 1];
-        if (!latestFeed) return;
+  const feeds = data.feeds;
+  if (!feeds?.length) {
+    showAlert('No sensor data available', 'warning');
+    return;
+  }
 
-        // CPU Temperature Card
-        updateCard('cpu-temp', 'cpu-temp-status', 'cpu-temp-minmax', 
-                  latestFeed.field1, '°C', 'field1', 50, 60);
-        
-        // CPU Usage Card
-        updateCard('cpu-usage', 'cpu-usage-status', 'cpu-usage-minmax', 
-                  latestFeed.field3, '%', 'field3', 70, 90);
-        
-        // Memory Usage Card
-        updateCard('mem-usage', 'mem-usage-status', 'mem-usage-minmax', 
-                  latestFeed.field4, ' GB', 'field4', 4, 6);
-        
-        // Disk Usage Card
-        updateCard('disk-usage', 'disk-usage-status', 'disk-usage-minmax', 
-                  latestFeed.field5, ' GB', 'field5', 100, 200);
-        
-        // Update Last Update Time
-        const updateTime = new Date(latestFeed.created_at);
-        const formattedTime = updateTime.toLocaleString();
-        const lastUpdateEl = document.getElementById('last-update');
-        if (lastUpdateEl) {
-            lastUpdateEl.textContent = `Last update: ${formattedTime}`;
-            lastUpdateEl.title = `Full timestamp: ${updateTime.toISOString()}`;
-        }
-        
-    } catch (error) {
-        console.error('Error updating data cards:', error);
-        showAlert('Error updating dashboard data', 'error');
-    }
+  const f = feeds[feeds.length - 1];
+
+  updateCard('cpu-temp',   'cpu-temp-status',  'cpu-temp-minmax',  f.field1, '°C',  'field1', 50,  60,  'spark-cpu-temp');
+  updateCard('cpu-usage',  'cpu-usage-status', 'cpu-usage-minmax', f.field3, '%',   'field3', 70,  90,  'spark-cpu-usage');
+  updateCard('mem-usage',  'mem-usage-status', 'mem-usage-minmax', f.field4, ' GB', 'field4', 4,   6,   'spark-mem-usage');
+  updateCard('disk-usage', 'disk-usage-status','disk-usage-minmax',f.field5, ' GB', 'field5', 100, 200, 'spark-disk-usage');
+
+  // Network
+  const sent = parseFloat(f.field6);
+  const recv = parseFloat(f.field7);
+  const sentEl = document.getElementById('net-sent');
+  const recvEl = document.getElementById('net-recv');
+  if (sentEl && !isNaN(sent)) animateValue(sentEl, `↑ ${sent.toFixed(2)} GB`);
+  if (recvEl && !isNaN(recv)) animateValue(recvEl, `↓ ${recv.toFixed(2)} GB`);
+
+  // Network sparkline — use sent values
+  if (!isNaN(sent)) {
+    sparkHistory.field6.push(sent);
+    if (sparkHistory.field6.length > CONFIG.sparklinePoints) sparkHistory.field6.shift();
+    updateSparkline('spark-network', sparkHistory.field6);
+  }
+
+  // Uptime
+  const uptime = parseFloat(f.field8);
+  if (!isNaN(uptime)) {
+    updateUptime(uptime);
+    sparkHistory.field8.push(uptime);
+    if (sparkHistory.field8.length > CONFIG.sparklinePoints) sparkHistory.field8.shift();
+    updateSparkline('spark-uptime', sparkHistory.field8);
+  }
+
+  // Timestamp
+  const ts = new Date(f.created_at);
+  const el = document.getElementById('last-update');
+  if (el) el.textContent = ts.toLocaleTimeString();
+
+  // Health score
+  const score = computeHealthScore(f);
+  updateHealthBadge(score);
 }
 
-function updateCard(valueId, statusId, minmaxId, value, unit, field, warningThreshold, criticalThreshold) {
-    const valueEl = document.getElementById(valueId);
-    const statusEl = document.getElementById(statusId);
-    
-    if (!valueEl) return;
-    
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) {
-        valueEl.textContent = '--' + unit;
-        if (statusEl) {
-            statusEl.className = 'status-indicator unknown';
-            statusEl.title = 'No data available';
-        }
-        return;
-    }
-    
-    // Update value with proper formatting
-    const decimals = unit === ' GB' ? 2 : 1;
-    valueEl.textContent = numValue.toFixed(decimals) + unit;
-    
-    // Update status indicator
-    if (statusEl) {
-        let statusClass = 'healthy';
-        let statusTitle = 'Normal';
-        
-        if (numValue >= criticalThreshold) {
-            statusClass = 'critical';
-            statusTitle = `Critical (>${criticalThreshold}${unit})`;
-        } else if (numValue >= warningThreshold) {
-            statusClass = 'warning';
-            statusTitle = `Warning (>${warningThreshold}${unit})`;
-        }
-        
-        statusEl.className = `status-indicator ${statusClass}`;
-        statusEl.title = statusTitle;
-    }
-    
-    // Track min/max and update display
-    trackMinMax(field, numValue);
-    updateMinMaxDisplay(minmaxId, field, unit);
+// ── Uptime formatter ───────────────────────────────────────
+function updateUptime(hours) {
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  const s = Math.floor(((hours - h) * 60 - m) * 60);
+  const el = document.getElementById('uptime');
+  if (el) {
+    const fmt = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    animateValue(el, fmt);
+    el.title = `${h}h ${m}m ${s}s`;
+  }
 }
 
-function trackMinMax(field, value) {
-    if (valueTracking[field] && !isNaN(value)) {
-        valueTracking[field].min = Math.min(valueTracking[field].min, value);
-        valueTracking[field].max = Math.max(valueTracking[field].max, value);
-    }
+// ── IST time helper ────────────────────────────────────────
+function extractISTTime(utcTs) {
+  try {
+    const d = new Date(new Date(utcTs).getTime() + 5.5 * 3600000);
+    return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+  } catch { return '--:--'; }
 }
 
-function updateMinMaxDisplay(elementId, field, unit = '') {
-    const element = document.getElementById(elementId);
-    if (!element || !valueTracking[field]) return;
-    
-    const tracking = valueTracking[field];
-    if (tracking.min === Infinity || tracking.max === -Infinity) {
-        element.innerHTML = '<small class="text-muted">No data</small>';
-        return;
-    }
-    
-    const decimals = unit === ' GB' ? 2 : 1;
-    element.innerHTML = `
-        <small class="text-muted">
-            Min: ${tracking.min.toFixed(decimals)}${unit} | 
-            Max: ${tracking.max.toFixed(decimals)}${unit}
-        </small>
-    `;
-}
-
-function resetMinMaxTracking() {
-    Object.keys(valueTracking).forEach(field => {
-        valueTracking[field] = { min: Infinity, max: -Infinity };
-    });
-    
-    // Clear all minmax displays
-    ['cpu-temp-minmax', 'cpu-usage-minmax', 'mem-usage-minmax', 'disk-usage-minmax'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) element.innerHTML = '<small class="text-muted">Tracking reset</small>';
-    });
-    
-    showAlert('Min/Max tracking has been reset', 'info');
-}
-
-async function fetchData() {
-    if (STATE.isPaused) return;
-    
-    showLoadingIndicator(true);
-    STATE.refreshCountdown = 5; // Reset countdown
-    
-    try {
-        const response = await fetch('/data');
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Check for API errors in response
-        if (data.error) {
-            throw new Error(data.message || data.error);
-        }
-        
-        // Update connection status
-        updateConnectionStatus(true);
-        
-        // Update data cards and check alerts
-        updateDataCards(data);
-        checkAlerts(data);
-        
-        // Update charts
-        updateCharts(data);
-        
-        showLoadingIndicator(false);
-        
-        // Show cache hit indicator if applicable
-        if (data.cache_hit) {
-            console.log('Data served from cache');
-        }
-        
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        handleFetchError(error);
-    }
-}
-
-function handleFetchError(error) {
-    STATE.retryCount++;
-    updateConnectionStatus(false, error.message);
-    showLoadingIndicator(false);
-    
-    if (STATE.retryCount <= CONFIG.maxRetries) {
-        showAlert(
-            `Connection error (attempt ${STATE.retryCount}/${CONFIG.maxRetries}). Retrying in ${CONFIG.retryDelay/1000}s...`,
-            'warning'
-        );
-        
-        setTimeout(() => {
-            if (STATE.retryCount <= CONFIG.maxRetries) {
-                fetchData();
-            }
-        }, CONFIG.retryDelay);
-    } else {
-        showAlert(
-            `Failed to connect after ${CONFIG.maxRetries} attempts. Please check your connection.`,
-            'error',
-            null,
-            false // Don't auto-hide
-        );
-    }
-}
-
+// ── Update charts ──────────────────────────────────────────
 function updateCharts(data) {
-    try {
-        // Clear previous data
-        Object.values(charts).forEach(chart => {
-            if (chart) {
-                chart.data.labels = [];
-                chart.data.datasets[0].data = [];
-            }
-        });
+  const feeds = data.feeds.slice(-15);
+  const labels = feeds.map(f => extractISTTime(f.created_at));
 
-        // Get the data points (last 15)
-        const feeds = data.feeds.slice(-15);
-        
-        feeds.forEach(feed => {
-            const time = new Date(feed.created_at).toLocaleTimeString();
-            
-            if (charts.cpuTemp) {
-                charts.cpuTemp.data.labels.push(time);
-                charts.cpuTemp.data.datasets[0].data.push(parseFloat(feed.field1) || 0);
-            }
-            
-            if (charts.cpuUsage) {
-                charts.cpuUsage.data.labels.push(time);
-                charts.cpuUsage.data.datasets[0].data.push(parseFloat(feed.field3) || 0);
-            }
-            
-            if (charts.memUsage) {
-                charts.memUsage.data.labels.push(time);
-                charts.memUsage.data.datasets[0].data.push(parseFloat(feed.field4) || 0);
-            }
-            
-            if (charts.diskUsage) {
-                charts.diskUsage.data.labels.push(time);
-                charts.diskUsage.data.datasets[0].data.push(parseFloat(feed.field5) || 0);
-            }
-        });
+  const fieldMap = [
+    { chart: charts.cpuTemp,  field: 'field1' },
+    { chart: charts.cpuUsage, field: 'field3' },
+    { chart: charts.memUsage, field: 'field4' },
+    { chart: charts.diskUsage,field: 'field5' },
+  ];
 
-        // Update all charts
-        Object.values(charts).forEach(chart => {
-            if (chart) chart.update('none'); // No animation for real-time updates
-        });
-        
-    } catch (error) {
-        console.error('Error updating charts:', error);
-        showAlert('Error updating charts', 'error');
-    }
+  fieldMap.forEach(({ chart, field }) => {
+    if (!chart) return;
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = feeds.map(f => parseFloat(f[field]) || null);
+    chart.update('none');
+  });
 }
 
-function extractISTTime(utcTimestamp) {
-    try {
-        const utcDate = new Date(utcTimestamp);
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        const istDate = new Date(utcDate.getTime() + istOffset);
-
-        const hours = String(istDate.getUTCHours()).padStart(2, '0');
-        const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
-        const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
-
-        return `${hours}:${minutes}:${seconds}`;
-    } catch (error) {
-        console.error('Error converting time:', error);
-        return '--:--:--';
-    }
-}
-
-async function fetchData_uptime() {
-    try {
-        const response = await fetch('/data');
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        const feeds = data.feeds;
-        
-        if (feeds && feeds.length > 0) {
-            const latestFeed = feeds[feeds.length - 1];
-            const uptime = parseFloat(latestFeed.field8);
-            if (!isNaN(uptime)) {
-                updateUptime(uptime);
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching uptime:', error);
-    }
-}
-
-function updateUptime(uptimeHours) {
-    try {
-        const hours = Math.floor(uptimeHours);
-        const minutes = Math.floor((uptimeHours - hours) * 60);
-        const seconds = Math.floor(((uptimeHours - hours) * 60 - minutes) * 60);
-
-        const formattedUptime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        
-        const uptimeEl = document.getElementById('uptime');
-        if (uptimeEl) {
-            uptimeEl.textContent = formattedUptime;
-            uptimeEl.title = `System uptime: ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
-        }
-    } catch (error) {
-        console.error('Error updating uptime:', error);
-    }
-}
-
+// ── Loading state ──────────────────────────────────────────
 function showLoadingIndicator(show) {
-    const indicator = document.getElementById('loading-indicator');
-    if (indicator) {
-        indicator.style.display = show ? 'flex' : 'none';
-    }
+  const el = document.getElementById('loading-indicator');
+  if (el) el.classList.toggle('visible', show);
 }
 
+// ── Fetch data ─────────────────────────────────────────────
+async function fetchData() {
+  if (STATE.isPaused) return;
+  showLoadingIndicator(true);
+  STATE.refreshCountdown = 5;
+
+  try {
+    const res = await fetch('/data');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.message || data.error);
+
+    updateConnectionStatus(true);
+    updateDataCards(data);
+    checkAlerts(data);
+    updateCharts(data);
+    showLoadingIndicator(false);
+
+  } catch (err) {
+    console.error('Fetch error:', err);
+    handleFetchError(err);
+  }
+}
+
+function handleFetchError(err) {
+  STATE.retryCount++;
+  updateConnectionStatus(false, err.message);
+  showLoadingIndicator(false);
+
+  if (STATE.retryCount <= CONFIG.maxRetries) {
+    showAlert(`Connection error — retrying (${STATE.retryCount}/${CONFIG.maxRetries})`, 'warning');
+    setTimeout(() => { if (STATE.retryCount <= CONFIG.maxRetries) fetchData(); }, CONFIG.retryDelay);
+  } else {
+    showAlert('Unable to reach the API. Check your connection.', 'error', null, false);
+  }
+}
+
+// ── Manual refresh ─────────────────────────────────────────
 function manualRefresh() {
-    const btn = document.getElementById('refresh-btn');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> Refreshing...';
+  const btn = document.getElementById('refresh-btn');
+  if (btn) {
+    btn.classList.add('spinning');
+    btn.disabled = true;
+    setTimeout(() => { btn.classList.remove('spinning'); btn.disabled = false; }, 1200);
+  }
+  STATE.retryCount = 0;
+  fetchData();
+}
+
+// ── Export ─────────────────────────────────────────────────
+function exportData(field) {
+  const link = document.createElement('a');
+  link.href = `/export/${field}/live`;
+  link.download = `${field}_live_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showAlert('Export started — check your downloads', 'ok');
+}
+
+// ── Hamburger nav ──────────────────────────────────────────
+function initHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const open = document.body.classList.toggle('nav-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.navbar')) {
+      document.body.classList.remove('nav-open');
+      btn.setAttribute('aria-expanded', 'false');
     }
-    
-    // Reset retry count for manual refresh
-    STATE.retryCount = 0;
-    
-    fetchData();
-    fetchData_uptime();
-    
-    setTimeout(() => {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-sync"></i> Refresh';
-        }
-    }, 1000);
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────
+function init() {
+  console.log('[RPi Monitor] Dashboard v3.0 initialising');
+
+  initHamburger();
+
+  // Attach refresh button
+  document.getElementById('refresh-btn')?.addEventListener('click', manualRefresh);
+
+  // Initial fetch
+  fetchData();
+
+  // Auto-refresh every 5s
+  setInterval(() => { if (!STATE.isPaused) fetchData(); }, CONFIG.refreshInterval);
+
+  // Countdown ticker
+  setInterval(updateRefreshCountdown, 1000);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'r': e.preventDefault(); manualRefresh(); break;
+        case ' ': e.preventDefault(); togglePause();   break;
+      }
+    }
+  });
+
+  // Tab visibility
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !STATE.isPaused) fetchData();
+  });
+
+  // Welcome
+  setTimeout(() => showAlert('Dashboard live — Ctrl+R to refresh, Ctrl+Space to pause', 'info'), 800);
 }
 
 function togglePause() {
-    STATE.isPaused = !STATE.isPaused;
-    const btn = document.getElementById('pause-btn');
-    
-    if (btn) {
-        if (STATE.isPaused) {
-            btn.innerHTML = '<i class="fas fa-play"></i> Resume';
-            btn.className = 'btn btn-sm btn-success ml-2';
-            showAlert('Auto-refresh paused', 'info');
-        } else {
-            btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
-            btn.className = 'btn btn-sm btn-warning ml-2';
-            showAlert('Auto-refresh resumed', 'info');
-            fetchData(); // Immediate refresh when resuming
-        }
-    }
+  STATE.isPaused = !STATE.isPaused;
+  if (!STATE.isPaused) fetchData();
+  showAlert(STATE.isPaused ? 'Auto-refresh paused' : 'Auto-refresh resumed', 'info');
 }
 
-function exportData(field) {
-    const period = 'live'; // Default to live data for quick export
-    const url = `/export/${field}/${period}`;
-    
-    showAlert('Preparing data export...', 'info');
-    
-    // Create a temporary link to trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${field}_${period}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showAlert('Export started - check your downloads', 'ok');
-}
-
-// Initialize tooltips
-function initializeTooltips() {
-    const tooltipElements = document.querySelectorAll('[data-tooltip]');
-    tooltipElements.forEach(element => {
-        element.title = element.getAttribute('data-tooltip');
-    });
-}
-
-function init_caller() {
-    console.log('Initializing Raspberry Pi Monitor Dashboard v2.0');
-    
-    // Initialize tooltips
-    initializeTooltips();
-    
-    // Initial fetch
-    fetchData();
-    fetchData_uptime();
-    
-    // Update refresh countdown every second
-    setInterval(updateRefreshCountdown, 1000);
-    
-    // Set up auto-refresh
-    setInterval(() => {
-        if (!STATE.isPaused) {
-            fetchData();
-            fetchData_uptime();
-        }
-    }, CONFIG.refreshInterval);
-    
-    // Set up event listeners
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', manualRefresh);
-    }
-    
-    // Add keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-            switch (e.key) {
-                case 'r':
-                    e.preventDefault();
-                    manualRefresh();
-                    break;
-                case ' ':
-                    e.preventDefault();
-                    togglePause();
-                    break;
-                case 'Escape':
-                    // Clear all alerts
-                    const alerts = document.querySelectorAll('.alert');
-                    alerts.forEach(alert => alert.remove());
-                    break;
-            }
-        }
-    });
-    
-    // Add visibility change handler to pause when tab is not visible
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            console.log('Tab hidden - monitoring continues in background');
-        } else {
-            console.log('Tab visible - refreshing data');
-            if (!STATE.isPaused) {
-                fetchData();
-                fetchData_uptime();
-            }
-        }
-    });
-    
-    // Show initialization complete message
-    setTimeout(() => {
-        showAlert('Dashboard initialized successfully! Press Ctrl+R to refresh, Ctrl+Space to pause/resume.', 'ok');
-    }, 1000);
-}
-
-// Initialize on page load
+// ── Boot ───────────────────────────────────────────────────
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init_caller);
+  document.addEventListener('DOMContentLoaded', init);
 } else {
-    init_caller();
+  init();
 }
