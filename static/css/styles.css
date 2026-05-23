@@ -101,7 +101,29 @@ body {
     radial-gradient(ellipse 60% 40% at 80% 80%, hsla(196, 60%, 10%, 0.3), transparent);
 }
 
-/* ── 3. Typography ────────────────────────────────────────── */
+/* ── 3. Lucide Icon SVG Sizing ─────────────────────────── */
+/* Lucide replaces <i data-lucide> with inline SVGs.
+   All SVGs use currentColor for stroke, inheriting color from parent. */
+svg.lucide {
+  display: block;
+  flex-shrink: 0;
+  stroke-width: 1.5;
+}
+
+.nav-logo-icon svg.lucide   { width: 16px; height: 16px; }
+.btn-nav svg.lucide          { width: 13px; height: 13px; }
+.metric-icon svg.lucide      { width: 16px; height: 16px; }
+.chart-title-icon svg.lucide { width: 13px; height: 13px; }
+.chart-actions svg.lucide    { width: 13px; height: 13px; }
+.analysis-link svg.lucide    { width: 14px; height: 14px; flex-shrink: 0; }
+.back-link svg.lucide        { width: 14px; height: 14px; }
+.alert svg.lucide            { width: 14px; height: 14px; flex-shrink: 0; }
+.shortcuts-bar svg.lucide    { width: 12px; height: 12px; }
+.btn svg.lucide              { width: 13px; height: 13px; }
+.error-state svg.lucide      { width: 32px; height: 32px; stroke-width: 1.25; }
+.health-badge svg.lucide     { width: 12px; height: 12px; stroke-width: 1.75; }
+
+/* ── 4. Typography ────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -493,7 +515,15 @@ kbd {
   border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 
-.metric-card:hover::before { opacity: 0.6; }
+.metric-card:hover::before { opacity: 1; }
+
+/* Per-metric top accent line colors */
+.metric-card[data-card="cpu-temp"]:hover::before   { background: hsl(196, 80%, 48%); }
+.metric-card[data-card="cpu-usage"]:hover::before  { background: hsl(152, 60%, 48%); }
+.metric-card[data-card="memory"]:hover::before     { background: hsl(38,  90%, 58%); }
+.metric-card[data-card="disk"]:hover::before       { background: hsl(215, 70%, 60%); }
+.metric-card[data-card="network"]:hover::before    { background: hsl(270, 60%, 65%); }
+.metric-card[data-card="uptime"]:hover::before     { background: hsl(152, 60%, 48%); }
 
 /* Stagger animation delays */
 .metric-card:nth-child(1) { animation-delay: 0ms; }
@@ -516,22 +546,58 @@ kbd {
 }
 
 .metric-icon {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 14px;
   background: var(--bg-elevated);
   color: var(--text-3);
-  transition: all var(--t-std);
+  transition: background var(--t-std) var(--ease-std),
+              color var(--t-std) var(--ease-std),
+              transform var(--t-fast) var(--ease-out);
+  flex-shrink: 0;
 }
 
 .metric-card:hover .metric-icon {
-  background: var(--accent-muted);
-  color: var(--accent);
+  transform: scale(1.1);
 }
+
+/* Per-metric accent colors */
+.metric-icon[data-metric="cpu-temp"] {
+  background: hsla(196, 80%, 48%, 0.08);
+  color: hsl(196, 80%, 48%);
+}
+.metric-icon[data-metric="cpu-usage"] {
+  background: hsla(152, 60%, 48%, 0.08);
+  color: hsl(152, 60%, 48%);
+}
+.metric-icon[data-metric="memory"] {
+  background: hsla(38, 90%, 58%, 0.08);
+  color: hsl(38, 90%, 58%);
+}
+.metric-icon[data-metric="disk"] {
+  background: hsla(215, 70%, 60%, 0.08);
+  color: hsl(215, 70%, 60%);
+}
+.metric-icon[data-metric="network"] {
+  background: hsla(270, 60%, 65%, 0.08);
+  color: hsl(270, 60%, 65%);
+}
+.metric-icon[data-metric="uptime"] {
+  background: hsla(152, 60%, 48%, 0.08);
+  color: hsl(152, 60%, 48%);
+}
+
+/* Hover: brighten the per-metric color */
+.metric-card:hover .metric-icon[data-metric="cpu-temp"]  { background: hsla(196, 80%, 48%, 0.16); color: hsl(196, 80%, 58%); }
+.metric-card:hover .metric-icon[data-metric="cpu-usage"] { background: hsla(152, 60%, 48%, 0.16); color: hsl(152, 60%, 58%); }
+.metric-card:hover .metric-icon[data-metric="memory"]    { background: hsla(38,  90%, 58%, 0.16); color: hsl(38,  90%, 68%); }
+.metric-card:hover .metric-icon[data-metric="disk"]      { background: hsla(215, 70%, 60%, 0.16); color: hsl(215, 70%, 70%); }
+.metric-card:hover .metric-icon[data-metric="network"]   { background: hsla(270, 60%, 65%, 0.16); color: hsl(270, 60%, 75%); }
+.metric-card:hover .metric-icon[data-metric="uptime"]    { background: hsla(152, 60%, 48%, 0.16); color: hsl(152, 60%, 58%); }
 
 .metric-status {
   width: 7px;
@@ -553,6 +619,7 @@ kbd {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: var(--s-1);
+  margin-top: var(--s-1);
 }
 
 .metric-value {
@@ -621,16 +688,41 @@ kbd {
 .chart-title {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-3);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
 }
 
-.chart-title i {
+/* Icon chip inside chart header */
+.chart-title-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
   color: var(--text-3);
 }
+
+/* Per-chart tinting */
+.chart-title-icon[data-chart="cpu-temp"]  { background: hsla(196, 80%, 48%, 0.10); color: hsl(196, 80%, 52%); }
+.chart-title-icon[data-chart="cpu-usage"] { background: hsla(152, 60%, 48%, 0.10); color: hsl(152, 60%, 52%); }
+.chart-title-icon[data-chart="memory"]    { background: hsla(38,  90%, 58%, 0.10); color: hsl(38,  90%, 58%); }
+.chart-title-icon[data-chart="disk"]      { background: hsla(215, 70%, 60%, 0.10); color: hsl(215, 70%, 62%); }
+
+/* Analysis link icon tinting */
+.analysis-link[data-field="field1"] i { color: hsl(196, 80%, 48%); }
+.analysis-link[data-field="field2"] i { color: hsl(270, 60%, 65%); }
+.analysis-link[data-field="field3"] i { color: hsl(152, 60%, 48%); }
+.analysis-link[data-field="field4"] i { color: hsl(38,  90%, 58%); }
+.analysis-link[data-field="field5"] i { color: hsl(215, 70%, 60%); }
+.analysis-link[data-field="field8"] i { color: hsl(152, 60%, 48%); }
+
+.analysis-link:hover i { filter: brightness(1.2); }
 
 .chart-actions {
   display: flex;

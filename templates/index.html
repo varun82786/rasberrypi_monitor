@@ -10,12 +10,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Icons -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
   <!-- Styles -->
   <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide icons (stroke-based, minimalist) -->
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
 
@@ -23,30 +26,30 @@
 <nav class="navbar" role="navigation" aria-label="Main navigation">
   <a href="/" class="nav-logo" aria-label="RPi Monitor home">
     <div class="nav-logo-icon" aria-hidden="true">
-      <i class="fas fa-microchip"></i>
+      <i data-lucide="cpu"></i>
     </div>
     <span class="nav-logo-text">RPi Monitor <span>/ Dashboard</span></span>
   </a>
 
   <div class="nav-divider" aria-hidden="true"></div>
 
-  <!-- Status -->
+  <!-- Connection status -->
   <div class="nav-status" aria-live="polite" aria-label="Connection status">
     <span id="connection-status" class="status-dot" title="API connection status"></span>
-    <span id="connection-status-text">Connecting…</span>
+    <span id="connection-status-text">Connecting&hellip;</span>
   </div>
 
   <!-- Desktop nav controls -->
   <div class="nav-collapse" id="nav-collapse">
     <div class="nav-meta">
       <span id="health-badge" class="health-badge" aria-label="System health score">
-        <i class="fas fa-circle-check" aria-hidden="true"></i>
-        <span id="health-score-text">Checking…</span>
+        <i data-lucide="activity" aria-hidden="true"></i>
+        <span id="health-score-text">Checking&hellip;</span>
       </span>
-      <span id="last-update" aria-live="polite">—</span>
+      <span id="last-update" aria-live="polite">&mdash;</span>
       <span id="refresh-countdown" aria-live="polite"></span>
-      <button id="refresh-btn" class="btn-nav" title="Refresh data now (Ctrl+R)" aria-label="Refresh">
-        <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
+      <button id="refresh-btn" class="btn-nav" title="Refresh (Ctrl+R)" aria-label="Refresh">
+        <i data-lucide="refresh-cw" aria-hidden="true"></i>
         Refresh
       </button>
     </div>
@@ -54,9 +57,7 @@
 
   <!-- Mobile hamburger -->
   <button class="nav-hamburger" id="hamburger-btn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-collapse">
-    <span></span>
-    <span></span>
-    <span></span>
+    <span></span><span></span><span></span>
   </button>
 </nav>
 
@@ -80,83 +81,95 @@
     <section class="metrics-grid" aria-label="System metrics">
 
       <!-- CPU Temperature -->
-      <article class="metric-card" data-tooltip="Current CPU die temperature" aria-label="CPU Temperature">
+      <article class="metric-card" data-card="cpu-temp" data-tooltip="Current CPU die temperature" aria-label="CPU Temperature">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-thermometer-half"></i></div>
+          <div class="metric-icon" data-metric="cpu-temp" aria-hidden="true">
+            <i data-lucide="thermometer"></i>
+          </div>
           <span id="cpu-temp-status" class="metric-status unknown" title="Status"></span>
         </div>
         <div class="metric-label">CPU Temp</div>
-        <div class="metric-value" id="cpu-temp">—</div>
-        <div class="metric-secondary" id="cpu-temp-minmax">—</div>
+        <div class="metric-value" id="cpu-temp">&mdash;</div>
+        <div class="metric-secondary" id="cpu-temp-minmax">&mdash;</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-cpu-temp"></canvas>
         </div>
       </article>
 
       <!-- CPU Usage -->
-      <article class="metric-card" data-tooltip="CPU utilisation across all cores" aria-label="CPU Usage">
+      <article class="metric-card" data-card="cpu-usage" data-tooltip="CPU utilisation across all cores" aria-label="CPU Usage">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-microchip"></i></div>
+          <div class="metric-icon" data-metric="cpu-usage" aria-hidden="true">
+            <i data-lucide="gauge"></i>
+          </div>
           <span id="cpu-usage-status" class="metric-status unknown" title="Status"></span>
         </div>
         <div class="metric-label">CPU Usage</div>
-        <div class="metric-value" id="cpu-usage">—</div>
-        <div class="metric-secondary" id="cpu-usage-minmax">—</div>
+        <div class="metric-value" id="cpu-usage">&mdash;</div>
+        <div class="metric-secondary" id="cpu-usage-minmax">&mdash;</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-cpu-usage"></canvas>
         </div>
       </article>
 
       <!-- Memory -->
-      <article class="metric-card" data-tooltip="RAM currently in use" aria-label="Memory Usage">
+      <article class="metric-card" data-card="memory" data-tooltip="RAM currently in use" aria-label="Memory Usage">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-memory"></i></div>
+          <div class="metric-icon" data-metric="memory" aria-hidden="true">
+            <i data-lucide="database"></i>
+          </div>
           <span id="mem-usage-status" class="metric-status unknown" title="Status"></span>
         </div>
         <div class="metric-label">Memory</div>
-        <div class="metric-value" id="mem-usage">—</div>
-        <div class="metric-secondary" id="mem-usage-minmax">—</div>
+        <div class="metric-value" id="mem-usage">&mdash;</div>
+        <div class="metric-secondary" id="mem-usage-minmax">&mdash;</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-mem-usage"></canvas>
         </div>
       </article>
 
       <!-- Disk -->
-      <article class="metric-card" data-tooltip="Disk space consumed" aria-label="Disk Usage">
+      <article class="metric-card" data-card="disk" data-tooltip="Disk space consumed" aria-label="Disk Usage">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-hard-drive"></i></div>
+          <div class="metric-icon" data-metric="disk" aria-hidden="true">
+            <i data-lucide="hard-drive"></i>
+          </div>
           <span id="disk-usage-status" class="metric-status unknown" title="Status"></span>
         </div>
         <div class="metric-label">Disk Used</div>
-        <div class="metric-value" id="disk-usage">—</div>
-        <div class="metric-secondary" id="disk-usage-minmax">—</div>
+        <div class="metric-value" id="disk-usage">&mdash;</div>
+        <div class="metric-secondary" id="disk-usage-minmax">&mdash;</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-disk-usage"></canvas>
         </div>
       </article>
 
       <!-- Network -->
-      <article class="metric-card" data-tooltip="Network bytes sent / received" aria-label="Network I/O">
+      <article class="metric-card" data-card="network" data-tooltip="Network bytes sent / received" aria-label="Network I/O">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-network-wired"></i></div>
+          <div class="metric-icon" data-metric="network" aria-hidden="true">
+            <i data-lucide="arrow-left-right"></i>
+          </div>
           <span class="metric-status healthy" title="Network active"></span>
         </div>
         <div class="metric-label">Network I/O</div>
-        <div class="metric-value" id="net-sent">—</div>
-        <div class="metric-secondary" id="net-recv">↓ —</div>
+        <div class="metric-value" id="net-sent">&mdash;</div>
+        <div class="metric-secondary" id="net-recv">&darr; &mdash;</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-network"></canvas>
         </div>
       </article>
 
       <!-- Uptime -->
-      <article class="metric-card" data-tooltip="Time since last system reboot" aria-label="System Uptime">
+      <article class="metric-card" data-card="uptime" data-tooltip="Time since last system reboot" aria-label="System Uptime">
         <div class="metric-card-header">
-          <div class="metric-icon" aria-hidden="true"><i class="fas fa-clock"></i></div>
+          <div class="metric-icon" data-metric="uptime" aria-hidden="true">
+            <i data-lucide="timer"></i>
+          </div>
           <span class="metric-status healthy" title="System running"></span>
         </div>
         <div class="metric-label">Uptime</div>
-        <div id="uptime" class="metric-value">—</div>
+        <div id="uptime" class="metric-value">&mdash;</div>
         <div class="metric-secondary">hrs : min : sec</div>
         <div class="sparkline-container" aria-hidden="true">
           <canvas id="spark-uptime"></canvas>
@@ -173,12 +186,14 @@
       <div class="chart-card animate-in">
         <div class="chart-card-header">
           <div class="chart-title">
-            <i class="fas fa-thermometer-half" aria-hidden="true"></i>
+            <div class="chart-title-icon" data-chart="cpu-temp" aria-hidden="true">
+              <i data-lucide="thermometer"></i>
+            </div>
             CPU Temperature
           </div>
           <div class="chart-actions">
-            <button class="btn btn-sm btn-icon" onclick="exportData('field1')" title="Export CPU temperature data" aria-label="Export CPU temperature CSV">
-              <i class="fas fa-download" aria-hidden="true"></i>
+            <button class="btn btn-sm btn-icon" onclick="exportData('field1')" title="Export CSV" aria-label="Export CPU temperature CSV">
+              <i data-lucide="download" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -191,12 +206,14 @@
       <div class="chart-card animate-in">
         <div class="chart-card-header">
           <div class="chart-title">
-            <i class="fas fa-microchip" aria-hidden="true"></i>
+            <div class="chart-title-icon" data-chart="cpu-usage" aria-hidden="true">
+              <i data-lucide="gauge"></i>
+            </div>
             CPU Usage
           </div>
           <div class="chart-actions">
-            <button class="btn btn-sm btn-icon" onclick="exportData('field3')" title="Export CPU usage data" aria-label="Export CPU usage CSV">
-              <i class="fas fa-download" aria-hidden="true"></i>
+            <button class="btn btn-sm btn-icon" onclick="exportData('field3')" title="Export CSV" aria-label="Export CPU usage CSV">
+              <i data-lucide="download" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -209,12 +226,14 @@
       <div class="chart-card animate-in">
         <div class="chart-card-header">
           <div class="chart-title">
-            <i class="fas fa-memory" aria-hidden="true"></i>
+            <div class="chart-title-icon" data-chart="memory" aria-hidden="true">
+              <i data-lucide="database"></i>
+            </div>
             Memory Usage
           </div>
           <div class="chart-actions">
-            <button class="btn btn-sm btn-icon" onclick="exportData('field4')" title="Export memory usage data" aria-label="Export memory usage CSV">
-              <i class="fas fa-download" aria-hidden="true"></i>
+            <button class="btn btn-sm btn-icon" onclick="exportData('field4')" title="Export CSV" aria-label="Export memory usage CSV">
+              <i data-lucide="download" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -227,12 +246,14 @@
       <div class="chart-card animate-in">
         <div class="chart-card-header">
           <div class="chart-title">
-            <i class="fas fa-hard-drive" aria-hidden="true"></i>
+            <div class="chart-title-icon" data-chart="disk" aria-hidden="true">
+              <i data-lucide="hard-drive"></i>
+            </div>
             Disk Usage
           </div>
           <div class="chart-actions">
-            <button class="btn btn-sm btn-icon" onclick="exportData('field5')" title="Export disk usage data" aria-label="Export disk usage CSV">
-              <i class="fas fa-download" aria-hidden="true"></i>
+            <button class="btn btn-sm btn-icon" onclick="exportData('field5')" title="Export CSV" aria-label="Export disk usage CSV">
+              <i data-lucide="download" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -246,23 +267,23 @@
     <!-- ── DETAILED ANALYSIS ─────────────────────────────── -->
     <p class="section-label">Detailed Analysis</p>
     <nav class="analysis-grid" aria-label="Detailed analysis links">
-      <a href="/graph/field1" class="analysis-link" id="link-field1">
-        <i class="fas fa-thermometer-half" aria-hidden="true"></i> CPU Temperature
+      <a href="/graph/field1" class="analysis-link" id="link-field1" data-field="field1">
+        <i data-lucide="thermometer" aria-hidden="true"></i> CPU Temperature
       </a>
-      <a href="/graph/field2" class="analysis-link" id="link-field2">
-        <i class="fas fa-fan" aria-hidden="true"></i> GPU Temperature
+      <a href="/graph/field2" class="analysis-link" id="link-field2" data-field="field2">
+        <i data-lucide="wind" aria-hidden="true"></i> GPU Temperature
       </a>
-      <a href="/graph/field3" class="analysis-link" id="link-field3">
-        <i class="fas fa-gauge-high" aria-hidden="true"></i> CPU Usage
+      <a href="/graph/field3" class="analysis-link" id="link-field3" data-field="field3">
+        <i data-lucide="gauge" aria-hidden="true"></i> CPU Usage
       </a>
-      <a href="/graph/field4" class="analysis-link" id="link-field4">
-        <i class="fas fa-memory" aria-hidden="true"></i> Memory Usage
+      <a href="/graph/field4" class="analysis-link" id="link-field4" data-field="field4">
+        <i data-lucide="database" aria-hidden="true"></i> Memory Usage
       </a>
-      <a href="/graph/field5" class="analysis-link" id="link-field5">
-        <i class="fas fa-hard-drive" aria-hidden="true"></i> Disk Usage
+      <a href="/graph/field5" class="analysis-link" id="link-field5" data-field="field5">
+        <i data-lucide="hard-drive" aria-hidden="true"></i> Disk Usage
       </a>
-      <a href="/graph/field8" class="analysis-link" id="link-field8">
-        <i class="fas fa-clock" aria-hidden="true"></i> System Uptime
+      <a href="/graph/field8" class="analysis-link" id="link-field8" data-field="field8">
+        <i data-lucide="timer" aria-hidden="true"></i> System Uptime
       </a>
     </nav>
 
@@ -272,16 +293,17 @@
 <!-- Loading overlay -->
 <div class="loading-overlay" id="loading-indicator" aria-live="polite" aria-label="Loading data">
   <div class="spinner" aria-hidden="true"></div>
-  <span>Updating…</span>
+  <span>Updating&hellip;</span>
 </div>
 
 <!-- Keyboard shortcuts hint -->
 <div class="shortcuts-bar" role="note" aria-label="Keyboard shortcuts">
-  <i class="fas fa-keyboard" aria-hidden="true"></i>
-  <kbd>Ctrl+R</kbd> Refresh &nbsp;·&nbsp; <kbd>Ctrl+Space</kbd> Pause
+  <i data-lucide="keyboard" aria-hidden="true"></i>
+  <kbd>Ctrl+R</kbd> Refresh &nbsp;&middot;&nbsp; <kbd>Ctrl+Space</kbd> Pause
 </div>
 
 <!-- Scripts -->
 <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+<script>lucide.createIcons();</script>
 </body>
 </html>

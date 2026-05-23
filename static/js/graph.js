@@ -177,14 +177,31 @@ function showChartError(message) {
     wrapper.appendChild(el);
   }
 
-  el.innerHTML = `
-    <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-    <strong>Failed to load chart</strong>
-    <span style="font-size:11px; color: var(--text-3);">${message}</span>
-    <button class="btn btn-sm" onclick="retryFetch()" style="margin-top:8px;">
-      <i class="fas fa-arrow-rotate-right"></i> Retry
-    </button>
-  `;
+  // Build error UI using DOM (no FA classes)
+  el.innerHTML = '';
+
+  const iconWrap = document.createElement('div');
+  iconWrap.innerHTML = '<i data-lucide="triangle-alert" aria-hidden="true"></i>';
+  el.appendChild(iconWrap);
+
+  const strong = document.createElement('strong');
+  strong.textContent = 'Failed to load chart';
+  el.appendChild(strong);
+
+  const detail = document.createElement('span');
+  detail.style.cssText = 'font-size:11px; color: var(--text-3);';
+  detail.textContent = message;
+  el.appendChild(detail);
+
+  const retryBtn = document.createElement('button');
+  retryBtn.className = 'btn btn-sm';
+  retryBtn.style.marginTop = '8px';
+  retryBtn.onclick = retryFetch;
+  retryBtn.innerHTML = '<i data-lucide="rotate-cw" aria-hidden="true"></i> Retry';
+  el.appendChild(retryBtn);
+
+  // Render the new Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ── Update stats cards ────────────────────────────────────
@@ -229,12 +246,32 @@ function setPageTitle() {
   const label = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
 
   const h1 = document.getElementById('graph-page-title');
-  if (h1) h1.textContent = `${name} Analysis`;
+  if (h1) h1.textContent = name + ' Analysis';
 
   const chartTitle = document.getElementById('chart-title-text');
   if (chartTitle) chartTitle.textContent = label;
 
-  document.title = `${name} — RPi Monitor`;
+  document.title = name + ' — RPi Monitor';
+
+  // Per-field icon chip (Lucide icon names)
+  const iconMap = {
+    field1: { icon: 'thermometer',      chart: 'cpu-temp'  },
+    field2: { icon: 'wind',             chart: 'memory'    },
+    field3: { icon: 'gauge',            chart: 'cpu-usage' },
+    field4: { icon: 'database',         chart: 'memory'    },
+    field5: { icon: 'hard-drive',       chart: 'disk'      },
+    field6: { icon: 'arrow-left-right', chart: 'disk'      },
+    field7: { icon: 'arrow-left-right', chart: 'disk'      },
+    field8: { icon: 'timer',            chart: 'cpu-usage' },
+  };
+  const chip = document.getElementById('chart-icon-chip');
+  if (chip) {
+    const cfg = iconMap[CURRENT_FIELD] || { icon: 'trending-up', chart: 'disk' };
+    chip.setAttribute('data-chart', cfg.chart);
+    chip.innerHTML = '<i data-lucide="' + cfg.icon + '"></i>';
+    // Re-render the new icon
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
 }
 
 // ── Loading state ─────────────────────────────────────────

@@ -191,22 +191,22 @@ function updateRefreshCountdown() {
   const el = document.getElementById('refresh-countdown');
   if (!el) return;
   if (STATE.refreshCountdown > 0) {
-    el.textContent = `${STATE.refreshCountdown}s`;
+    el.textContent = STATE.refreshCountdown + 's';
   } else {
-    el.textContent = '…';
+    el.textContent = '\u2026';
     STATE.refreshCountdown = 5;
   }
 }
 
 // ── Connection status ──────────────────────────────────────
-function updateConnectionStatus(isConnected, message = '') {
+function updateConnectionStatus(isConnected, message) {
   STATE.isOnline = isConnected;
   const dot  = document.getElementById('connection-status');
   const text = document.getElementById('connection-status-text');
 
   if (dot) {
-    dot.className = `status-dot ${isConnected ? 'healthy' : 'critical'}`;
-    dot.title = isConnected ? 'Connected to ThingSpeak API' : `Error: ${message}`;
+    dot.className = 'status-dot ' + (isConnected ? 'healthy' : 'critical');
+    dot.title = isConnected ? 'Connected to ThingSpeak API' : ('Error: ' + (message || ''));
   }
   if (text) {
     text.textContent = isConnected ? 'Connected' : 'Offline';
@@ -221,10 +221,10 @@ function updateConnectionStatus(isConnected, message = '') {
 // ── Health score ───────────────────────────────────────────
 function computeHealthScore(latestFeed) {
   const checks = [
-    { value: parseFloat(latestFeed.field1), warn: 50, crit: 60 },  // CPU Temp
-    { value: parseFloat(latestFeed.field3), warn: 70, crit: 90 },  // CPU Usage
-    { value: parseFloat(latestFeed.field4), warn: 4,  crit: 6  },  // Memory
-    { value: parseFloat(latestFeed.field5), warn: 100,crit: 200},  // Disk
+    { value: parseFloat(latestFeed.field1), warn: 50, crit: 60 },
+    { value: parseFloat(latestFeed.field3), warn: 70, crit: 90 },
+    { value: parseFloat(latestFeed.field4), warn: 4,  crit: 6  },
+    { value: parseFloat(latestFeed.field5), warn: 100,crit: 200},
   ];
 
   let penalty = 0;
@@ -245,58 +245,115 @@ function updateHealthBadge(score) {
   badge.className = 'health-badge';
   if (score >= 80) {
     badge.classList.add('score-high');
-    text.textContent = `Healthy ${score}`;
+    text.textContent = 'Healthy ' + score;
   } else if (score >= 50) {
     badge.classList.add('score-medium');
-    text.textContent = `Degraded ${score}`;
+    text.textContent = 'Degraded ' + score;
   } else {
     badge.classList.add('score-low');
-    text.textContent = `Critical ${score}`;
+    text.textContent = 'Critical ' + score;
   }
+}
+
+// ── Lucide SVG helper (for dynamic icons in JS) ────────────
+// Builds an inline SVG from Lucide's icon definition array.
+// Lucide's UMD bundle exposes icons on window.lucide.icons
+// as camelCase keys, e.g. lucide.icons.triangleAlert
+function makeLucideIcon(kebabName, size) {
+  size = size || 14;
+  if (typeof lucide === 'undefined' || !lucide.icons) return null;
+
+  // Convert kebab-case to camelCase: 'triangle-alert' -> 'triangleAlert'
+  const camel = kebabName.replace(/-([a-z])/g, function(_, c) { return c.toUpperCase(); });
+  const def = lucide.icons[camel];
+  if (!def || !Array.isArray(def)) return null;
+
+  // def is [tag, attrs, children[]]
+  const svgAttrs = def[1] || {};
+  const children = def[2] || [];
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('xmlns', NS);
+  svg.setAttribute('width',  size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('viewBox', svgAttrs.viewBox || '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.5');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('class', 'lucide lucide-' + kebabName);
+  svg.setAttribute('aria-hidden', 'true');
+
+  children.forEach(function(child) {
+    if (!Array.isArray(child)) return;
+    const tag   = child[0];
+    const attrs = child[1] || {};
+    const el = document.createElementNS(NS, tag);
+    Object.keys(attrs).forEach(function(k) { el.setAttribute(k, attrs[k]); });
+    svg.appendChild(el);
+  });
+
+  return svg;
 }
 
 // ── Alert system ───────────────────────────────────────────
 const ALERT_ICONS = {
-  critical: 'fa-triangle-exclamation',
-  warning:  'fa-circle-exclamation',
-  ok:       'fa-circle-check',
-  info:     'fa-circle-info',
-  error:    'fa-circle-xmark',
+  critical: 'triangle-alert',
+  warning:  'circle-alert',
+  ok:       'circle-check',
+  info:     'info',
+  error:    'circle-x',
 };
 
-function showAlert(message, type = 'info', fieldId = null, autoHide = true) {
+function showAlert(message, type, fieldId, autoHide) {
+  type     = type     || 'info';
+  autoHide = autoHide !== false; // default true
+
   const container = document.getElementById('alert-container');
   if (!container) return;
 
   if (fieldId) {
-    const existing = container.querySelector(`[data-field="${fieldId}"]`);
+    const existing = container.querySelector('[data-field="' + fieldId + '"]');
     if (existing) existing.remove();
   }
 
   const el = document.createElement('div');
-  el.className = `alert alert-${type}`;
+  el.className = 'alert alert-' + type;
   if (fieldId) el.setAttribute('data-field', fieldId);
-  el.innerHTML = `
-    <i class="fas ${ALERT_ICONS[type] || ALERT_ICONS.info}" aria-hidden="true"></i>
-    <span>${message}</span>
-    <button class="alert-close" aria-label="Dismiss">&times;</button>
-  `;
 
-  el.querySelector('.alert-close').addEventListener('click', () => {
+  // Icon
+  const iconEl = makeLucideIcon(ALERT_ICONS[type] || ALERT_ICONS.info, 14);
+  if (iconEl) el.appendChild(iconEl);
+
+  // Message
+  const span = document.createElement('span');
+  span.textContent = message;
+  el.appendChild(span);
+
+  // Dismiss button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'alert-close';
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.textContent = '\u00D7';
+  el.appendChild(closeBtn);
+
+  closeBtn.addEventListener('click', function() {
     el.style.opacity = '0';
     el.style.transform = 'translateX(24px)';
     el.style.transition = 'all 150ms ease';
-    setTimeout(() => el.remove(), 160);
+    setTimeout(function() { el.remove(); }, 160);
   });
 
   container.appendChild(el);
 
   if (autoHide) {
-    setTimeout(() => {
+    setTimeout(function() {
       el.style.opacity = '0';
       el.style.transform = 'translateX(24px)';
       el.style.transition = 'all 150ms ease';
-      setTimeout(() => el.remove(), 160);
+      setTimeout(function() { el.remove(); }, 160);
     }, CONFIG.alertTimeout);
   }
 }
@@ -305,33 +362,34 @@ function showAlert(message, type = 'info', fieldId = null, autoHide = true) {
 function checkAlerts(data) {
   try {
     const feeds = data.feeds;
-    if (!feeds?.length) return;
+    if (!feeds || !feeds.length) return;
     const latest = feeds[feeds.length - 1];
     if (!latest) return;
 
     const thresholds = {
-      field1: { warning: 50, critical: 60, label: 'CPU Temp',   unit: '°C' },
-      field3: { warning: 70, critical: 90, label: 'CPU Usage',  unit: '%'  },
-      field4: { warning: 4,  critical: 6,  label: 'Memory',     unit: ' GB'},
-      field5: { warning: 100,critical: 200,label: 'Disk',       unit: ' GB'},
+      field1: { warning: 50, critical: 60, label: 'CPU Temp',  unit: '\u00B0C' },
+      field3: { warning: 70, critical: 90, label: 'CPU Usage', unit: '%'       },
+      field4: { warning: 4,  critical: 6,  label: 'Memory',    unit: ' GB'     },
+      field5: { warning: 100,critical: 200,label: 'Disk',      unit: ' GB'     },
     };
 
-    for (const [field, cfg] of Object.entries(thresholds)) {
+    for (const field in thresholds) {
+      const cfg = thresholds[field];
       const val = parseFloat(latest[field]);
       if (isNaN(val)) continue;
 
       const prev = lastAlertCheck[field];
       if (val > cfg.critical) {
         if (prev !== 'critical')
-          showAlert(`🔴 Critical: ${cfg.label} is ${val.toFixed(1)}${cfg.unit} (limit: ${cfg.critical})`, 'critical', field);
+          showAlert('Critical: ' + cfg.label + ' is ' + val.toFixed(1) + cfg.unit + ' (limit: ' + cfg.critical + ')', 'critical', field);
         lastAlertCheck[field] = 'critical';
       } else if (val > cfg.warning) {
         if (prev !== 'warning' && prev !== 'critical')
-          showAlert(`🟡 Warning: ${cfg.label} is ${val.toFixed(1)}${cfg.unit} (limit: ${cfg.warning})`, 'warning', field);
+          showAlert('Warning: ' + cfg.label + ' is ' + val.toFixed(1) + cfg.unit + ' (limit: ' + cfg.warning + ')', 'warning', field);
         lastAlertCheck[field] = 'warning';
       } else {
         if (prev === 'critical' || prev === 'warning')
-          showAlert(`🟢 Resolved: ${cfg.label} returned to normal (${val.toFixed(1)}${cfg.unit})`, 'ok', field);
+          showAlert('Resolved: ' + cfg.label + ' returned to normal (' + val.toFixed(1) + cfg.unit + ')', 'ok', field);
         lastAlertCheck[field] = null;
       }
     }
@@ -353,9 +411,9 @@ function animateValue(element, targetText) {
   if (!element) return;
   element.textContent = targetText;
   element.classList.remove('stat-updated');
-  void element.offsetWidth; // reflow
+  void element.offsetWidth;
   element.classList.add('stat-updated');
-  setTimeout(() => element.classList.remove('stat-updated'), 300);
+  setTimeout(function() { element.classList.remove('stat-updated'); }, 300);
 }
 
 // ── Update metric cards ────────────────────────────────────
@@ -366,12 +424,11 @@ function updateCard(valueId, statusId, minmaxId, rawValue, unit, field, warnAt, 
 
   const num = parseFloat(rawValue);
   if (isNaN(num)) {
-    if (valueEl) valueEl.textContent = '—';
+    if (valueEl) valueEl.textContent = '\u2014';
     if (statusEl) { statusEl.className = 'metric-status unknown'; statusEl.title = 'No data'; }
     return;
   }
 
-  // Format
   const decimals = unit.includes('GB') ? 2 : 1;
   const formatted = num.toFixed(decimals) + unit;
   if (valueEl) {
@@ -380,23 +437,20 @@ function updateCard(valueId, statusId, minmaxId, rawValue, unit, field, warnAt, 
       (num >= critAt ? ' val-critical' : num >= warnAt ? ' val-warning' : '');
   }
 
-  // Status dot
   if (statusEl) {
     const cls = num >= critAt ? 'critical' : num >= warnAt ? 'warning' : 'healthy';
-    statusEl.className = `metric-status ${cls}`;
+    statusEl.className = 'metric-status ' + cls;
     statusEl.title = cls.charAt(0).toUpperCase() + cls.slice(1);
   }
 
-  // Min/max label
   trackMinMax(field, num);
   if (mmEl) {
     const t = valueTracking[field];
     if (t && t.min !== Infinity) {
-      mmEl.textContent = `↓ ${t.min.toFixed(decimals)}${unit}  ↑ ${t.max.toFixed(decimals)}${unit}`;
+      mmEl.textContent = '\u2193 ' + t.min.toFixed(decimals) + unit + '  \u2191 ' + t.max.toFixed(decimals) + unit;
     }
   }
 
-  // Sparkline
   if (sparkId && sparkHistory[field] !== undefined) {
     sparkHistory[field].push(num);
     if (sparkHistory[field].length > CONFIG.sparklinePoints) sparkHistory[field].shift();
@@ -406,34 +460,31 @@ function updateCard(valueId, statusId, minmaxId, rawValue, unit, field, warnAt, 
 
 function updateDataCards(data) {
   const feeds = data.feeds;
-  if (!feeds?.length) {
+  if (!feeds || !feeds.length) {
     showAlert('No sensor data available', 'warning');
     return;
   }
 
   const f = feeds[feeds.length - 1];
 
-  updateCard('cpu-temp',   'cpu-temp-status',  'cpu-temp-minmax',  f.field1, '°C',  'field1', 50,  60,  'spark-cpu-temp');
-  updateCard('cpu-usage',  'cpu-usage-status', 'cpu-usage-minmax', f.field3, '%',   'field3', 70,  90,  'spark-cpu-usage');
-  updateCard('mem-usage',  'mem-usage-status', 'mem-usage-minmax', f.field4, ' GB', 'field4', 4,   6,   'spark-mem-usage');
-  updateCard('disk-usage', 'disk-usage-status','disk-usage-minmax',f.field5, ' GB', 'field5', 100, 200, 'spark-disk-usage');
+  updateCard('cpu-temp',   'cpu-temp-status',  'cpu-temp-minmax',  f.field1, '\u00B0C', 'field1', 50,  60,  'spark-cpu-temp');
+  updateCard('cpu-usage',  'cpu-usage-status', 'cpu-usage-minmax', f.field3, '%',       'field3', 70,  90,  'spark-cpu-usage');
+  updateCard('mem-usage',  'mem-usage-status', 'mem-usage-minmax', f.field4, ' GB',     'field4', 4,   6,   'spark-mem-usage');
+  updateCard('disk-usage', 'disk-usage-status','disk-usage-minmax',f.field5, ' GB',     'field5', 100, 200, 'spark-disk-usage');
 
-  // Network
   const sent = parseFloat(f.field6);
   const recv = parseFloat(f.field7);
   const sentEl = document.getElementById('net-sent');
   const recvEl = document.getElementById('net-recv');
-  if (sentEl && !isNaN(sent)) animateValue(sentEl, `↑ ${sent.toFixed(2)} GB`);
-  if (recvEl && !isNaN(recv)) animateValue(recvEl, `↓ ${recv.toFixed(2)} GB`);
+  if (sentEl && !isNaN(sent)) animateValue(sentEl, '\u2191 ' + sent.toFixed(2) + ' GB');
+  if (recvEl && !isNaN(recv)) animateValue(recvEl, '\u2193 ' + recv.toFixed(2) + ' GB');
 
-  // Network sparkline — use sent values
   if (!isNaN(sent)) {
     sparkHistory.field6.push(sent);
     if (sparkHistory.field6.length > CONFIG.sparklinePoints) sparkHistory.field6.shift();
     updateSparkline('spark-network', sparkHistory.field6);
   }
 
-  // Uptime
   const uptime = parseFloat(f.field8);
   if (!isNaN(uptime)) {
     updateUptime(uptime);
@@ -442,12 +493,10 @@ function updateDataCards(data) {
     updateSparkline('spark-uptime', sparkHistory.field8);
   }
 
-  // Timestamp
   const ts = new Date(f.created_at);
   const el = document.getElementById('last-update');
   if (el) el.textContent = ts.toLocaleTimeString();
 
-  // Health score
   const score = computeHealthScore(f);
   updateHealthBadge(score);
 }
@@ -459,9 +508,9 @@ function updateUptime(hours) {
   const s = Math.floor(((hours - h) * 60 - m) * 60);
   const el = document.getElementById('uptime');
   if (el) {
-    const fmt = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    const fmt = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
     animateValue(el, fmt);
-    el.title = `${h}h ${m}m ${s}s`;
+    el.title = h + 'h ' + m + 'm ' + s + 's';
   }
 }
 
@@ -469,14 +518,14 @@ function updateUptime(hours) {
 function extractISTTime(utcTs) {
   try {
     const d = new Date(new Date(utcTs).getTime() + 5.5 * 3600000);
-    return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
-  } catch { return '--:--'; }
+    return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+  } catch(e) { return '--:--'; }
 }
 
 // ── Update charts ──────────────────────────────────────────
 function updateCharts(data) {
   const feeds = data.feeds.slice(-15);
-  const labels = feeds.map(f => extractISTTime(f.created_at));
+  const labels = feeds.map(function(f) { return extractISTTime(f.created_at); });
 
   const fieldMap = [
     { chart: charts.cpuTemp,  field: 'field1' },
@@ -485,11 +534,11 @@ function updateCharts(data) {
     { chart: charts.diskUsage,field: 'field5' },
   ];
 
-  fieldMap.forEach(({ chart, field }) => {
-    if (!chart) return;
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = feeds.map(f => parseFloat(f[field]) || null);
-    chart.update('none');
+  fieldMap.forEach(function(item) {
+    if (!item.chart) return;
+    item.chart.data.labels = labels;
+    item.chart.data.datasets[0].data = feeds.map(function(f) { return parseFloat(f[item.field]) || null; });
+    item.chart.update('none');
   });
 }
 
@@ -507,7 +556,7 @@ async function fetchData() {
 
   try {
     const res = await fetch('/data');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data.error) throw new Error(data.message || data.error);
 
@@ -529,8 +578,8 @@ function handleFetchError(err) {
   showLoadingIndicator(false);
 
   if (STATE.retryCount <= CONFIG.maxRetries) {
-    showAlert(`Connection error — retrying (${STATE.retryCount}/${CONFIG.maxRetries})`, 'warning');
-    setTimeout(() => { if (STATE.retryCount <= CONFIG.maxRetries) fetchData(); }, CONFIG.retryDelay);
+    showAlert('Connection error \u2014 retrying (' + STATE.retryCount + '/' + CONFIG.maxRetries + ')', 'warning');
+    setTimeout(function() { if (STATE.retryCount <= CONFIG.maxRetries) fetchData(); }, CONFIG.retryDelay);
   } else {
     showAlert('Unable to reach the API. Check your connection.', 'error', null, false);
   }
@@ -542,7 +591,7 @@ function manualRefresh() {
   if (btn) {
     btn.classList.add('spinning');
     btn.disabled = true;
-    setTimeout(() => { btn.classList.remove('spinning'); btn.disabled = false; }, 1200);
+    setTimeout(function() { btn.classList.remove('spinning'); btn.disabled = false; }, 1200);
   }
   STATE.retryCount = 0;
   fetchData();
@@ -551,24 +600,23 @@ function manualRefresh() {
 // ── Export ─────────────────────────────────────────────────
 function exportData(field) {
   const link = document.createElement('a');
-  link.href = `/export/${field}/live`;
-  link.download = `${field}_live_${new Date().toISOString().slice(0,10)}.csv`;
+  link.href = '/export/' + field + '/live';
+  link.download = field + '_live_' + new Date().toISOString().slice(0,10) + '.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  showAlert('Export started — check your downloads', 'ok');
+  showAlert('Export started \u2014 check your downloads', 'ok');
 }
 
 // ── Hamburger nav ──────────────────────────────────────────
 function initHamburger() {
   const btn = document.getElementById('hamburger-btn');
   if (!btn) return;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', function() {
     const open = document.body.classList.toggle('nav-open');
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
-  // Close on outside click
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', function(e) {
     if (!e.target.closest('.navbar')) {
       document.body.classList.remove('nav-open');
       btn.setAttribute('aria-expanded', 'false');
@@ -578,39 +626,30 @@ function initHamburger() {
 
 // ── Init ───────────────────────────────────────────────────
 function init() {
-  console.log('[RPi Monitor] Dashboard v3.0 initialising');
+  console.log('[RPi Monitor] Dashboard initialising');
 
   initHamburger();
 
-  // Attach refresh button
-  document.getElementById('refresh-btn')?.addEventListener('click', manualRefresh);
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', manualRefresh);
 
-  // Initial fetch
   fetchData();
 
-  // Auto-refresh every 5s
-  setInterval(() => { if (!STATE.isPaused) fetchData(); }, CONFIG.refreshInterval);
-
-  // Countdown ticker
+  setInterval(function() { if (!STATE.isPaused) fetchData(); }, CONFIG.refreshInterval);
   setInterval(updateRefreshCountdown, 1000);
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', function(e) {
     if (e.ctrlKey || e.metaKey) {
-      switch (e.key) {
-        case 'r': e.preventDefault(); manualRefresh(); break;
-        case ' ': e.preventDefault(); togglePause();   break;
-      }
+      if (e.key === 'r') { e.preventDefault(); manualRefresh(); }
+      if (e.key === ' ') { e.preventDefault(); togglePause();   }
     }
   });
 
-  // Tab visibility
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener('visibilitychange', function() {
     if (!document.hidden && !STATE.isPaused) fetchData();
   });
 
-  // Welcome
-  setTimeout(() => showAlert('Dashboard live — Ctrl+R to refresh, Ctrl+Space to pause', 'info'), 800);
+  setTimeout(function() { showAlert('Dashboard live \u2014 Ctrl+R to refresh', 'info'); }, 900);
 }
 
 function togglePause() {
