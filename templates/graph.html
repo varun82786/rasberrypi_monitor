@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Detailed historical analysis for {{ field }} — Raspberry Pi system monitor.">
-  <title>{{ field | title }} Analysis — RPi Monitor</title>
+  <meta name="description" content="Detailed historical analysis for {{ field_name }} — Raspberry Pi system monitor.">
+  <title>{{ field_name }} Analysis — RPi Monitor</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +23,8 @@
 
   <!-- Field data for JavaScript -->
   <script>
-    const CURRENT_FIELD = '{{ field }}';
-    const FIELD_LABELS = {
+    window.CURRENT_FIELD = '{{ field }}';
+    window.FIELD_LABELS = {
       'field1': 'CPU Temperature (°C)',
       'field2': 'GPU Temperature (°C)',
       'field3': 'CPU Usage (%)',
@@ -34,7 +34,7 @@
       'field7': 'Bytes Received (GB)',
       'field8': 'System Uptime (hours)'
     };
-    const FIELD_NAMES = {
+    window.FIELD_NAMES = {
       'field1': 'CPU Temperature',
       'field2': 'GPU Temperature',
       'field3': 'CPU Usage',
@@ -87,8 +87,8 @@
     <!-- Page Header -->
     <header class="page-header animate-in">
       <div>
-        <h1 class="page-title" id="graph-page-title">{{ field | title }} Analysis</h1>
-        <p class="page-subtitle">Historical data &mdash; select a time range below</p>
+        <h1 class="page-title" id="graph-page-title">{{ field_name }} Analysis</h1>
+        <p class="page-subtitle">Historical data — select a time range below</p>
       </div>
     </header>
 

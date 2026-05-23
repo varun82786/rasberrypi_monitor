@@ -400,7 +400,12 @@ def graph(field):
         field = sanitize_input(field)
         validate_field(field)
         logger.info(f"Rendering graph page for field: {field}")
-        return render_template('graph.html', field=field)
+        return render_template(
+            'graph.html',
+            field=field,
+            field_name=FIELD_LABELS.get(field, field),
+            field_label=FIELD_LABELS.get(field, field)
+        )
     except ValidationError as e:
         logger.warning(f"Invalid field in graph route: {field} - {e}")
         abort(400)

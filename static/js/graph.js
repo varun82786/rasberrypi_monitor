@@ -242,16 +242,15 @@ function updateStatistics(values, serverStats = null) {
 
 // ── Set page title based on field ────────────────────────
 function setPageTitle() {
-  const name  = (window.FIELD_NAMES || {})[CURRENT_FIELD] || CURRENT_FIELD;
-  const label = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+  const name  = (window.FIELD_NAMES  || {})[CURRENT_FIELD] || CURRENT_FIELD;
+  const label = (window.FIELD_LABELS || {})[CURRENT_FIELD] || CURRENT_FIELD;
 
-  const h1 = document.getElementById('graph-page-title');
-  if (h1) h1.textContent = name + ' Analysis';
+  // Browser tab only — h1 is server-rendered by Jinja2, do NOT overwrite
+  document.title = name + ' Analysis — RPi Monitor';
 
+  // Chart card label
   const chartTitle = document.getElementById('chart-title-text');
   if (chartTitle) chartTitle.textContent = label;
-
-  document.title = name + ' — RPi Monitor';
 
   // Per-field icon chip (Lucide icon names)
   const iconMap = {
