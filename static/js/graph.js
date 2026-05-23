@@ -79,7 +79,7 @@ function updateChart(labels, values, data = {}) {
   const errorEl = document.querySelector('.error-state');
   if (errorEl) errorEl.remove();
 
-  const fieldLabel = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+  const fieldLabel = (window.FIELD_LABELS || {})[CURRENT_FIELD] || CURRENT_FIELD;
 
   try {
     chart = new Chart(ctx, {
@@ -120,11 +120,12 @@ function updateChart(labels, values, data = {}) {
             bodyFont: { size: 11 },
             callbacks: {
               label: (ctx) => {
-                let txt = `  ${ctx.parsed.y.toFixed(2)}`;
+                const v = ctx.parsed.y;
+                const formatted = BYTES_FIELDS[CURRENT_FIELD] ? formatBytes(v) : v.toFixed(2);
+                let txt = '  ' + formatted;
                 if (data.thresholds) {
-                  const v = ctx.parsed.y;
-                  if (v > data.thresholds.critical) txt += '  🔴';
-                  else if (v > data.thresholds.warning) txt += '  🟡';
+                  if (v > data.thresholds.critical) txt += '  ● crit';
+                  else if (v > data.thresholds.warning) txt += '  ▲ warn';
                 }
                 return txt;
               },
@@ -133,9 +134,9 @@ function updateChart(labels, values, data = {}) {
                 const v = ctx.parsed.y;
                 const lines = [];
                 if (v > data.thresholds.critical)
-                  lines.push(`  ⚠ Above critical (${data.thresholds.critical})`);
+                  lines.push('  ⚠ Above critical (' + data.thresholds.critical + ')');
                 else if (v > data.thresholds.warning)
-                  lines.push(`  ▲ Above warning (${data.thresholds.warning})`);
+                  lines.push('  ▲ Above warning (' + data.thresholds.warning + ')');
                 return lines;
               },
             },
@@ -150,7 +151,11 @@ function updateChart(labels, values, data = {}) {
           y: {
             beginAtZero: false,
             grid: { color: 'hsla(222, 28%, 15%, 0.5)', drawBorder: false },
-            ticks: { maxTicksLimit: 6, font: { size: 10 } },
+            ticks: {
+              maxTicksLimit: 6,
+              font: { size: 10 },
+              callback: (val) => BYTES_FIELDS[CURRENT_FIELD] ? formatBytes(val) : val.toFixed(1),
+            },
             border: { display: false },
           },
         },
@@ -274,8 +279,8 @@ function setPageTitle() {
     field3: { icon: 'gauge',            chart: 'cpu-usage' },
     field4: { icon: 'database',         chart: 'memory'    },
     field5: { icon: 'hard-drive',       chart: 'disk'      },
-    field6: { icon: 'arrow-left-right', chart: 'disk'      },
-    field7: { icon: 'arrow-left-right', chart: 'disk'      },
+    field6: { icon: 'upload',           chart: 'network'   },
+    field7: { icon: 'download',         chart: 'network'   },
     field8: { icon: 'timer',            chart: 'cpu-usage' },
   };
   const chip = document.getElementById('chart-icon-chip');

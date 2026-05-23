@@ -713,6 +713,7 @@ kbd {
 .chart-title-icon[data-chart="cpu-usage"] { background: hsla(152, 60%, 48%, 0.10); color: hsl(152, 60%, 52%); }
 .chart-title-icon[data-chart="memory"]    { background: hsla(38,  90%, 58%, 0.10); color: hsl(38,  90%, 58%); }
 .chart-title-icon[data-chart="disk"]      { background: hsla(215, 70%, 60%, 0.10); color: hsl(215, 70%, 62%); }
+.chart-title-icon[data-chart="network"]   { background: hsla(200, 70%, 55%, 0.10); color: hsl(200, 70%, 58%); }
 
 /* Analysis link icon tinting */
 .analysis-link[data-field="field1"] i { color: hsl(196, 80%, 48%); }
@@ -720,6 +721,8 @@ kbd {
 .analysis-link[data-field="field3"] i { color: hsl(152, 60%, 48%); }
 .analysis-link[data-field="field4"] i { color: hsl(38,  90%, 58%); }
 .analysis-link[data-field="field5"] i { color: hsl(215, 70%, 60%); }
+.analysis-link[data-field="field6"] i { color: hsl(200, 70%, 55%); }
+.analysis-link[data-field="field7"] i { color: hsl(220, 65%, 62%); }
 .analysis-link[data-field="field8"] i { color: hsl(152, 60%, 48%); }
 
 .analysis-link:hover i { filter: brightness(1.2); }
