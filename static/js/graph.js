@@ -17,6 +17,7 @@ const STATE = {
 function fetchData_period(period) {
     if (isLoading) return;
     
+    console.log('Fetching data for period:', period);
     currentPeriod = period;
     isLoading = true;
     showLoadingIndicator(true);
@@ -25,19 +26,30 @@ function fetchData_period(period) {
     document.querySelectorAll('.time-range-container button').forEach(btn => {
         btn.classList.remove('active');
     });
-    if (event && event.target) {
-        event.target.classList.add('active');
+    
+    // Find and activate the button for this period
+    const activeButton = document.querySelector(`button[data-period="${period}"]`);
+    if (activeButton) {
+        activeButton.classList.add('active');
+        console.log('Activated button for period:', period);
+    } else {
+        console.warn('Could not find button for period:', period);
     }
     
     // Use the CURRENT_FIELD variable from the template
-    fetch(`/historic_data/${CURRENT_FIELD}/${period}`)
+    const url = `/historic_data/${CURRENT_FIELD}/${period}`;
+    console.log('Fetching from URL:', url);
+    
+    fetch(url)
         .then(response => {
+            console.log('Response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             return response.json();
         })
         .then(data => {
+            console.log('Received data:', data);
             if (data.error) {
                 throw new Error(data.message || data.error);
             }
@@ -48,6 +60,29 @@ function fetchData_period(period) {
 
             feeds.forEach(feed => {
                 const time = extractISTTime(feed.created_at);
+                labels.push(time);
+                const fieldValue = feed[CURRENT_FIELD];
+                values.push(parseFloat(fieldValue) || 0);
+            });
+
+            console.log('Processed data - Labels:', labels.length, 'Values:', values.length);
+            updateChart(labels, values, data);
+            updateStatistics(values, data.statistics);
+            showLoadingIndicator(false);
+            isLoading = false;
+            STATE.retryCount = 0;
+            STATE.lastSuccessfulUpdate = new Date();
+            
+            // Show cache hit indicator
+            if (data.cache_hit) {
+                console.log('Data served from cache');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+            handleFetchError(error, period);
+        });
+}
                 labels.push(time);
                 const fieldValue = feed[CURRENT_FIELD];
                 values.push(parseFloat(fieldValue) || 0);
@@ -122,13 +157,25 @@ function retryFetch() {
 }
 
 function updateChart(labels, values, data = {}) {
-    const ctx = document.getElementById('graphCanvas').getContext('2d');
+    console.log('Updating chart with:', { labels: labels.length, values: values.length, data });
+    
+    const canvas = document.getElementById('graphCanvas');
+    if (!canvas) {
+        console.error('Canvas element not found');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('Could not get canvas context');
+        return;
+    }
     
     if (chart) {
+        console.log('Destroying existing chart');
         chart.destroy();  // Destroy previous chart instance if exists
     }
 
-    const canvas = document.getElementById('graphCanvas');
     canvas.style.display = 'block';
     
     // Hide any error messages
@@ -137,6 +184,7 @@ function updateChart(labels, values, data = {}) {
     
     // Get the label for the current field
     const fieldLabel = FIELD_LABELS[CURRENT_FIELD] || CURRENT_FIELD;
+    console.log('Field label:', fieldLabel);
     
     // Determine chart color based on thresholds
     let borderColor = 'rgba(0, 212, 255, 1)';
@@ -153,70 +201,77 @@ function updateChart(labels, values, data = {}) {
         }
     }
     
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: fieldLabel,
-                data: values,
-                borderColor: borderColor,
-                backgroundColor: backgroundColor,
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 5,
-                pointBackgroundColor: borderColor,
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointHoverRadius: 7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-                duration: CONFIG.chartAnimationDuration
+    console.log('Creating new chart...');
+    try {
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: fieldLabel,
+                    data: values,
+                    borderColor: borderColor,
+                    backgroundColor: backgroundColor,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: borderColor,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 7
+                }]
             },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        font: { size: 12, weight: 'bold' }
-                    }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: CONFIG.chartAnimationDuration
                 },
-                tooltip: {
-                    backgroundColor: 'rgba(10, 14, 39, 0.9)',
-                    titleColor: '#00d4ff',
-                    bodyColor: 'rgba(255, 255, 255, 0.8)',
-                    borderColor: 'rgba(0, 212, 255, 0.5)',
-                    borderWidth: 1,
-                    callbacks: {
-                        afterBody: function(context) {
-                            if (data.thresholds) {
-                                return [
-                                    `Warning: ${data.thresholds.warning}`,
-                                    `Critical: ${data.thresholds.critical}`
-                                ];
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            font: { size: 12, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(10, 14, 39, 0.9)',
+                        titleColor: '#00d4ff',
+                        bodyColor: 'rgba(255, 255, 255, 0.8)',
+                        borderColor: 'rgba(0, 212, 255, 0.5)',
+                        borderWidth: 1,
+                        callbacks: {
+                            afterBody: function(context) {
+                                if (data.thresholds) {
+                                    return [
+                                        `Warning: ${data.thresholds.warning}`,
+                                        `Critical: ${data.thresholds.critical}`
+                                    ];
+                                }
+                                return [];
                             }
-                            return [];
                         }
                     }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
                 },
-                x: {
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                    }
                 }
             }
-        }
-    });
+        });
+        console.log('Chart created successfully');
+    } catch (error) {
+        console.error('Error creating chart:', error);
+        showError(`Failed to create chart: ${error.message}`);
+    }
 }
 function updateStatistics(values, serverStats = null) {
     if (values.length === 0) {
@@ -331,11 +386,90 @@ document.addEventListener('keydown', (e) => {
 
 // Initialize on page load
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('Graph page initialized for field:', CURRENT_FIELD);
-        fetchData_period('live');
-    });
+    document.addEventListener('DOMContentLoaded', initializeGraphPage);
 } else {
-    console.log('Graph page initialized for field:', CURRENT_FIELD);
-    fetchData_period('live');
+    initializeGraphPage();
+}
+
+// Debug functions
+function toggleDebug() {
+    const debugInfo = document.getElementById('debug-info');
+    if (debugInfo.style.display === 'none') {
+        debugInfo.style.display = 'block';
+        updateDebugInfo();
+    } else {
+        debugInfo.style.display = 'none';
+    }
+}
+
+function updateDebugInfo() {
+    const fieldLabel = document.getElementById('debug-field-label');
+    const chartjsStatus = document.getElementById('debug-chartjs');
+    const canvasStatus = document.getElementById('debug-canvas');
+    
+    if (fieldLabel) {
+        fieldLabel.textContent = FIELD_LABELS[CURRENT_FIELD] || 'Unknown';
+    }
+    
+    if (chartjsStatus) {
+        chartjsStatus.textContent = typeof Chart !== 'undefined' ? 'Yes' : 'No';
+        chartjsStatus.style.color = typeof Chart !== 'undefined' ? 'green' : 'red';
+    }
+    
+    if (canvasStatus) {
+        const canvas = document.getElementById('graphCanvas');
+        canvasStatus.textContent = canvas ? 'Found' : 'Not Found';
+        canvasStatus.style.color = canvas ? 'green' : 'red';
+    }
+}
+
+function initializeGraphPage() {
+    console.log('DOM loaded - Graph page initialized for field:', CURRENT_FIELD);
+    
+    // Update debug info
+    updateDebugInfo();
+    
+    // Check if required elements exist
+    const canvas = document.getElementById('graphCanvas');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
+    if (!canvas) {
+        console.error('Canvas element not found!');
+        showError('Canvas element not found. Please refresh the page.');
+        return;
+    }
+    
+    if (!loadingIndicator) {
+        console.error('Loading indicator not found!');
+    }
+    
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded!');
+        showError('Chart.js library failed to load. Please refresh the page.');
+        return;
+    }
+    
+    // Set up event listeners for time range buttons
+    const timeRangeContainer = document.querySelector('.time-range-container');
+    if (timeRangeContainer) {
+        timeRangeContainer.addEventListener('click', function(e) {
+            const button = e.target.closest('button[data-period]');
+            if (button) {
+                const period = button.getAttribute('data-period');
+                console.log('Button clicked for period:', period);
+                fetchData_period(period);
+            }
+        });
+        console.log('Event listeners set up for time range buttons');
+    } else {
+        console.error('Time range container not found!');
+    }
+    
+    console.log('All required elements found, starting initial fetch...');
+    
+    // Add a small delay to ensure everything is ready
+    setTimeout(() => {
+        fetchData_period('live');
+    }, 100);
 }

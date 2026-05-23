@@ -7,7 +7,7 @@
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/graph.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/graph.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Pass field parameter to JavaScript -->
     <script>
@@ -22,6 +22,18 @@
             'field7': 'Bytes Received',
             'field8': 'System Uptime (hours)'
         };
+        
+        // Debug logging
+        console.log('Template loaded with field:', CURRENT_FIELD);
+        console.log('Field labels:', FIELD_LABELS);
+        
+        // Check if Chart.js is loading
+        window.addEventListener('load', function() {
+            console.log('Window loaded. Chart.js available:', typeof Chart !== 'undefined');
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js failed to load from CDN');
+            }
+        });
     </script>
 </head>
 <body>
@@ -37,6 +49,20 @@
 
     <!-- Main Container -->
     <div class="container mt-4">
+        <!-- Debug Information -->
+        <div class="alert alert-info" id="debug-info" style="display: none;">
+            <h5>Debug Information</h5>
+            <p><strong>Field:</strong> {{ field }}</p>
+            <p><strong>Field Label:</strong> <span id="debug-field-label"></span></p>
+            <p><strong>Chart.js Loaded:</strong> <span id="debug-chartjs"></span></p>
+            <p><strong>Canvas Element:</strong> <span id="debug-canvas"></span></p>
+        </div>
+        
+        <!-- Toggle Debug Button -->
+        <button class="btn btn-sm btn-outline-light mb-3" onclick="toggleDebug()">
+            <i class="fas fa-bug"></i> Toggle Debug Info
+        </button>
+
         <!-- Chart Card -->
         <div class="card animate-in mb-5">
             <div class="card-body">
@@ -50,31 +76,31 @@
 
         <!-- Time Range Selection -->
         <div class="time-range-container">
-            <button class="btn btn-secondary active" onclick="fetchData_period('live')">
+            <button class="btn btn-secondary active" data-period="live">
                 <i class="fas fa-fire"></i> Live
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('30min')">
+            <button class="btn btn-secondary" data-period="30min">
                 <i class="fas fa-clock"></i> 30 Min
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('1hr')">
+            <button class="btn btn-secondary" data-period="1hr">
                 <i class="fas fa-hourglass-start"></i> 1 Hour
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('3hrs')">
+            <button class="btn btn-secondary" data-period="3hrs">
                 <i class="fas fa-hourglass-half"></i> 3 Hours
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('6hrs')">
+            <button class="btn btn-secondary" data-period="6hrs">
                 <i class="fas fa-hourglass-end"></i> 6 Hours
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('12hrs')">
+            <button class="btn btn-secondary" data-period="12hrs">
                 <i class="fas fa-calendar"></i> 12 Hours
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('24hrs')">
+            <button class="btn btn-secondary" data-period="24hrs">
                 <i class="fas fa-calendar-alt"></i> 24 Hours
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('48hrs')">
+            <button class="btn btn-secondary" data-period="48hrs">
                 <i class="fas fa-calendar-check"></i> 48 Hours
             </button>
-            <button class="btn btn-secondary" onclick="fetchData_period('72hrs')">
+            <button class="btn btn-secondary" data-period="72hrs">
                 <i class="fas fa-calendar-times"></i> 72 Hours
             </button>
         </div>
@@ -130,6 +156,6 @@
         </div>
     </div>
 
-    <script src="/static/js/graph.js"></script>
+    <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
 </body>
 </html>

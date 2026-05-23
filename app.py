@@ -370,16 +370,43 @@ def data():
             'status': 'error'
         }), 500
 
+@app.route('/test/graph/<field>')
+def test_graph(field):
+    """Test endpoint for debugging graph issues"""
+    try:
+        field = sanitize_input(field)
+        validate_field(field)
+        
+        # Return some test data
+        test_data = {
+            'field': field,
+            'field_label': FIELD_LABELS.get(field, field),
+            'field_unit': FIELD_UNITS.get(field, ''),
+            'valid_fields': VALID_FIELDS,
+            'valid_periods': VALID_PERIODS
+        }
+        
+        return jsonify(test_data)
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in test_graph: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/graph/<field>')
 def graph(field):
     """Render graph page with field validation"""
     try:
         field = sanitize_input(field)
         validate_field(field)
+        logger.info(f"Rendering graph page for field: {field}")
         return render_template('graph.html', field=field)
     except ValidationError as e:
-        logger.warning(f"Invalid field in graph route: {field}")
+        logger.warning(f"Invalid field in graph route: {field} - {e}")
         abort(400)
+    except Exception as e:
+        logger.error(f"Error in graph route: {e}")
+        abort(500)
 
 @app.route('/historic_data/<field>/<period>')
 @ratelimit()

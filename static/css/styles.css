@@ -663,3 +663,72 @@ canvas {
     font-size: 0.7rem;
     margin-left: 0.3rem;
 }
+/* Graph page specific styles */
+.graph-header {
+    background: rgba(10, 14, 39, 0.95);
+    border-bottom: 2px solid var(--primary-color);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.graph-header h1 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--primary-color);
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.btn-back:hover {
+    color: var(--accent-color);
+    transform: translateX(-4px);
+    text-decoration: none;
+}
+
+.time-range-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin: 2rem 0;
+    padding: 1.5rem 0;
+    border-top: 2px solid rgba(0, 212, 255, 0.1);
+    border-bottom: 2px solid rgba(0, 212, 255, 0.1);
+}
+
+/* Canvas sizing for graphs */
+#graphCanvas {
+    width: 100% !important;
+    height: 400px !important;
+}
+
+@media (max-width: 768px) {
+    .graph-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    #graphCanvas {
+        height: 300px !important;
+    }
+    
+    .time-range-container {
+        gap: 0.5rem;
+    }
+}
