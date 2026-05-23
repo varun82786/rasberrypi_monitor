@@ -215,6 +215,19 @@ function updateStatElement(id, value) {
   setTimeout(() => el.classList.remove('stat-updated'), 300);
 }
 
+
+// ── Bytes formatter (shared with dashboard) ───────────────────
+function formatBytes(bytes) {
+  if (isNaN(bytes) || bytes < 0) return '\u2014';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, val = bytes;
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  return val.toFixed(i < 2 ? 0 : 2) + '\u00a0' + units[i];
+}
+
+// Fields that store raw bytes and need formatBytes() instead of toFixed()
+const BYTES_FIELDS = { field6: true, field7: true };
+
 function updateStatistics(values, serverStats = null) {
   if (!values.length) {
     ['current-value','average-value','min-value','max-value','data-points'].forEach(id => updateStatElement(id, '—'));
@@ -228,16 +241,18 @@ function updateStatistics(values, serverStats = null) {
     count:   values.length,
   };
 
-  const dp = 2;
-  updateStatElement('current-value', values[values.length - 1].toFixed(dp));
-  updateStatElement('average-value', stats.average.toFixed(dp));
-  updateStatElement('min-value',     stats.min.toFixed(dp));
-  updateStatElement('max-value',     stats.max.toFixed(dp));
+  const isBytes = BYTES_FIELDS[CURRENT_FIELD];
+  const fmt = (v) => isBytes ? formatBytes(v) : v.toFixed(2);
+
+  updateStatElement('current-value', fmt(values[values.length - 1]));
+  updateStatElement('average-value', fmt(stats.average));
+  updateStatElement('min-value',     fmt(stats.min));
+  updateStatElement('max-value',     fmt(stats.max));
   updateStatElement('data-points',   String(stats.count || values.length));
 
   // Also update legacy min-max div for compat
   const mmEl = document.getElementById('min-max-values');
-  if (mmEl) mmEl.textContent = `Min: ${stats.min.toFixed(dp)} · Max: ${stats.max.toFixed(dp)}`;
+  if (mmEl) mmEl.textContent = 'Min: ' + fmt(stats.min) + ' · Max: ' + fmt(stats.max);
 }
 
 // ── Set page title based on field ────────────────────────

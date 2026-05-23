@@ -476,11 +476,12 @@ function updateDataCards(data) {
   const recv = parseFloat(f.field7);
   const sentEl = document.getElementById('net-sent');
   const recvEl = document.getElementById('net-recv');
-  if (sentEl && !isNaN(sent)) animateValue(sentEl, '\u2191 ' + sent.toFixed(2) + ' GB');
-  if (recvEl && !isNaN(recv)) animateValue(recvEl, '\u2193 ' + recv.toFixed(2) + ' GB');
+  if (sentEl && !isNaN(sent)) animateValue(sentEl, '\u2191 ' + formatBytes(sent));
+  if (recvEl && !isNaN(recv)) animateValue(recvEl, '\u2193 ' + formatBytes(recv));
 
+  // Sparkline uses MB so the scale is human-readable
   if (!isNaN(sent)) {
-    sparkHistory.field6.push(sent);
+    sparkHistory.field6.push(sent / 1048576);
     if (sparkHistory.field6.length > CONFIG.sparklinePoints) sparkHistory.field6.shift();
     updateSparkline('spark-network', sparkHistory.field6);
   }
@@ -502,6 +503,19 @@ function updateDataCards(data) {
 }
 
 // ── Uptime formatter ───────────────────────────────────────
+
+// ── Bytes formatter ────────────────────────────────────────
+// Auto-scales raw psutil byte counts (bytes_sent / bytes_recv)
+// to the most readable unit: B → KB → MB → GB → TB
+function formatBytes(bytes) {
+  if (isNaN(bytes) || bytes < 0) return '\u2014';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, val = bytes;
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  // Whole numbers for B/KB; 2 decimal places for MB and above
+  return val.toFixed(i < 2 ? 0 : 2) + '\u00a0' + units[i];
+}
+
 function updateUptime(hours) {
   const h = Math.floor(hours);
   const m = Math.floor((hours - h) * 60);
