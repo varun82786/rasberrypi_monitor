@@ -570,3 +570,96 @@ canvas {
         font-size: 2rem;
     }
 }
+/* Keyboard Shortcuts Info */
+.keyboard-shortcuts {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(26, 31, 58, 0.9);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    backdrop-filter: blur(10px);
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    z-index: 1000;
+}
+
+.keyboard-shortcuts:hover {
+    opacity: 1;
+}
+
+/* Stat update animation */
+.stat-updated {
+    animation: statPulse 0.3s ease-out;
+}
+
+@keyframes statPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Error message styling */
+.error-message {
+    color: var(--danger-color) !important;
+    background: rgba(255, 0, 110, 0.1);
+    border: 2px solid var(--danger-color);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 2rem 0;
+}
+
+/* Enhanced info text */
+.info-text {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 2rem;
+}
+
+.info-text kbd {
+    background: rgba(0, 212, 255, 0.2);
+    color: var(--primary-color);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+}
+
+/* Loading improvements */
+.loading-text {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.loading-spinner {
+    margin-right: 0.5rem;
+}
+
+/* Button hover improvements */
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+/* Alert improvements */
+.alert {
+    animation: slideInRight 0.3s ease-out;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Connection status improvements */
+#connection-status.healthy::after {
+    content: " Connected";
+    font-size: 0.7rem;
+    margin-left: 0.3rem;
+}
+
+#connection-status.critical::after {
+    content: " Disconnected";
+    font-size: 0.7rem;
+    margin-left: 0.3rem;
+}

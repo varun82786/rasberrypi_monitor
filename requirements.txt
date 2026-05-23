@@ -18,6 +18,7 @@ pandas
 pillow
 pyparsing
 python-dateutil
+python-dotenv
 pytz
 requests
 six
