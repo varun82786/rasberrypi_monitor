@@ -83,28 +83,6 @@ function fetchData_period(period) {
             handleFetchError(error, period);
         });
 }
-                labels.push(time);
-                const fieldValue = feed[CURRENT_FIELD];
-                values.push(parseFloat(fieldValue) || 0);
-            });
-
-            updateChart(labels, values, data);
-            updateStatistics(values, data.statistics);
-            showLoadingIndicator(false);
-            isLoading = false;
-            STATE.retryCount = 0;
-            STATE.lastSuccessfulUpdate = new Date();
-            
-            // Show cache hit indicator
-            if (data.cache_hit) {
-                console.log('Data served from cache');
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching data:', error);
-            handleFetchError(error, period);
-        });
-}
 function handleFetchError(error, period) {
     STATE.retryCount++;
     isLoading = false;
@@ -173,7 +151,7 @@ function updateChart(labels, values, data = {}) {
     
     if (chart) {
         console.log('Destroying existing chart');
-        chart.destroy();  // Destroy previous chart instance if exists
+        chart.destroy();
     }
 
     canvas.style.display = 'block';
@@ -367,30 +345,6 @@ function exportCurrentData() {
     console.log('Export started for', CURRENT_FIELD, currentPeriod);
 }
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-            case 'r':
-                e.preventDefault();
-                STATE.retryCount = 0;
-                fetchData_period(currentPeriod);
-                break;
-            case 'e':
-                e.preventDefault();
-                exportCurrentData();
-                break;
-        }
-    }
-});
-
-// Initialize on page load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeGraphPage);
-} else {
-    initializeGraphPage();
-}
-
 // Debug functions
 function toggleDebug() {
     const debugInfo = document.getElementById('debug-info');
@@ -472,4 +426,28 @@ function initializeGraphPage() {
     setTimeout(() => {
         fetchData_period('live');
     }, 100);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+            case 'r':
+                e.preventDefault();
+                STATE.retryCount = 0;
+                fetchData_period(currentPeriod);
+                break;
+            case 'e':
+                e.preventDefault();
+                exportCurrentData();
+                break;
+        }
+    }
+});
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeGraphPage);
+} else {
+    initializeGraphPage();
 }
