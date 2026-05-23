@@ -64,50 +64,90 @@ function buildGradient(ctx, height, color) {
 }
 
 // ── Create / update chart ─────────────────────────────────
-function updateChart(labels, values, data = {}) {
+// updateChart supports:
+//   single field  -> updateChart(labels, values, data)
+//   dual datasets -> updateChart(labels, null, data, [{label,values,color}, ...])
+function updateChart(labels, values, data = {}, datasets = null) {
   const canvas = document.getElementById('graphCanvas');
   if (!canvas) return;
 
   const ctx    = canvas.getContext('2d');
-  const color  = getFieldColor();
   const height = canvas.clientHeight || 380;
-  const grad   = buildGradient(ctx, height, color);
 
   if (chart) { chart.destroy(); chart = null; }
-
   canvas.style.display = 'block';
   const errorEl = document.querySelector('.error-state');
   if (errorEl) errorEl.remove();
 
-  const fieldLabel = (window.FIELD_LABELS || {})[CURRENT_FIELD] || CURRENT_FIELD;
+  const isNetworkChart = (datasets !== null);
+  const isBytes = isNetworkChart || BYTES_FIELDS[CURRENT_FIELD];
+  const ptRadius = labels.length > 100 ? 0 : 3;
+
+  // Build Chart.js datasets array
+  let chartDatasets;
+  if (isNetworkChart) {
+    chartDatasets = datasets.map(ds => {
+      const grad = buildGradient(ctx, height, ds.color);
+      return {
+        label: ds.label,
+        data: ds.values,
+        borderColor: ds.color,
+        backgroundColor: grad,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.45,
+        pointRadius: ptRadius,
+        pointHoverRadius: 6,
+        pointBackgroundColor: ds.color,
+        pointBorderColor: 'hsl(222, 47%, 4%)',
+        pointBorderWidth: 1.5,
+      };
+    });
+  } else {
+    const color = getFieldColor();
+    const grad  = buildGradient(ctx, height, color);
+    const label = (window.FIELD_LABELS || {})[CURRENT_FIELD] || CURRENT_FIELD;
+    chartDatasets = [{
+      label,
+      data: values,
+      borderColor: color,
+      backgroundColor: grad,
+      borderWidth: 2,
+      fill: true,
+      tension: 0.45,
+      pointRadius: ptRadius,
+      pointHoverRadius: 6,
+      pointBackgroundColor: color,
+      pointBorderColor: 'hsl(222, 47%, 4%)',
+      pointBorderWidth: 1.5,
+    }];
+  }
 
   try {
     chart = new Chart(ctx, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: fieldLabel,
-          data: values,
-          borderColor: color,
-          backgroundColor: grad,
-          borderWidth: 2,
-          fill: true,
-          tension: 0.45,
-          pointRadius: labels.length > 100 ? 0 : 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: color,
-          pointBorderColor: 'hsl(222, 47%, 4%)',
-          pointBorderWidth: 1.5,
-        }],
-      },
+      data: { labels, datasets: chartDatasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: { duration: CONFIG.chartAnimationDuration, easing: 'easeInOutQuart' },
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false },
+          // Show legend only for dual-line (network) chart
+          legend: {
+            display: isNetworkChart,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 12,
+              boxHeight: 2,
+              usePointStyle: true,
+              pointStyle: 'line',
+              font: { size: 11 },
+              color: 'hsl(215, 20%, 70%)',
+              padding: 16,
+            },
+          },
           tooltip: {
             backgroundColor: 'hsl(222, 40%, 9%)',
             titleColor: 'hsl(210, 36%, 96%)',
@@ -121,8 +161,8 @@ function updateChart(labels, values, data = {}) {
             callbacks: {
               label: (ctx) => {
                 const v = ctx.parsed.y;
-                const formatted = BYTES_FIELDS[CURRENT_FIELD] ? formatBytes(v) : v.toFixed(2);
-                let txt = '  ' + formatted;
+                const formatted = isBytes ? formatBytes(v) : v.toFixed(2);
+                let txt = '  ' + ctx.dataset.label + ':  ' + formatted;
                 if (data.thresholds) {
                   if (v > data.thresholds.critical) txt += '  ● crit';
                   else if (v > data.thresholds.warning) txt += '  ▲ warn';
@@ -154,7 +194,7 @@ function updateChart(labels, values, data = {}) {
             ticks: {
               maxTicksLimit: 6,
               font: { size: 10 },
-              callback: (val) => BYTES_FIELDS[CURRENT_FIELD] ? formatBytes(val) : val.toFixed(1),
+              callback: (val) => isBytes ? formatBytes(val) : val.toFixed(1),
             },
             border: { display: false },
           },
@@ -282,6 +322,7 @@ function setPageTitle() {
     field6: { icon: 'upload',           chart: 'network'   },
     field7: { icon: 'download',         chart: 'network'   },
     field8: { icon: 'timer',            chart: 'cpu-usage' },
+    network: { icon: 'activity',         chart: 'network'   },
   };
   const chip = document.getElementById('chart-icon-chip');
   if (chip) {
@@ -319,11 +360,56 @@ function fetchData_period(period) {
   setActiveSegment(period);
   showLoadingIndicator(true);
 
-  const url = `/historic_data/${CURRENT_FIELD}/${period}`;
+  // Network mode: fetch field6 (Sent) + field7 (Recv) in parallel
+  if (CURRENT_FIELD === 'network') {
+    Promise.all([
+      fetch('/historic_data/field6/' + period).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/historic_data/field7/' + period).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ])
+    .then(([d6, d7]) => {
+      if (d6.error) throw new Error(d6.message || d6.error);
+      if (d7.error) throw new Error(d7.message || d7.error);
+
+      const feeds6 = d6.feeds || [];
+      const feeds7 = d7.feeds || [];
+
+      // Align labels on field6 timestamps (both feeds are from same channel, same times)
+      const labels = feeds6.map(f => extractISTTime(f.created_at));
+      const sent   = feeds6.map(f => parseFloat(f.field6) || 0);
+      const recv   = feeds7.map(f => parseFloat(f.field7) || 0);
+
+      const TEAL = 'hsl(200, 70%, 55%)';
+      const BLUE = 'hsl(220, 65%, 62%)';
+
+      updateChart(labels, null, {}, [
+        { label: '↑ Bytes Sent',     values: sent, color: TEAL },
+        { label: '↓ Bytes Received', values: recv, color: BLUE },
+      ]);
+
+      // Stats: show Sent current + Recv current side-by-side
+      updateNetworkStats(sent, recv, d6.statistics, d7.statistics);
+
+      const tsEl = document.getElementById('last-update-graph');
+      if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+      showLoadingIndicator(false);
+      isLoading = false;
+      STATE.retryCount = 0;
+      STATE.lastSuccessfulUpdate = new Date();
+    })
+    .catch(err => {
+      console.error('Network fetch error:', err);
+      handleFetchError(err, period);
+    });
+    return;
+  }
+
+  // Standard single-field fetch
+  const url = '/historic_data/' + CURRENT_FIELD + '/' + period;
 
   fetch(url)
     .then(res => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
       return res.json();
     })
     .then(data => {
@@ -336,9 +422,8 @@ function fetchData_period(period) {
       updateChart(labels, values, data);
       updateStatistics(values, data.statistics);
 
-      // Update timestamp
       const tsEl = document.getElementById('last-update-graph');
-      if (tsEl) tsEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+      if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
 
       showLoadingIndicator(false);
       isLoading = false;
@@ -349,6 +434,38 @@ function fetchData_period(period) {
       console.error('Fetch error:', err);
       handleFetchError(err, period);
     });
+}
+
+// ── Network dual-stats update ──────────────────────────────
+// Shows Sent stats in the standard stat cards; appends Recv
+// in a second row (reuses the same elements with two passes)
+function updateNetworkStats(sent, recv, stats6, stats7) {
+  const fmtS = (v) => formatBytes(v);
+
+  // Current: last value of each
+  const curSent = sent.length ? sent[sent.length - 1] : 0;
+  const curRecv = recv.length ? recv[recv.length - 1] : 0;
+
+  // Compute stats if server didn't provide them
+  const calcStats = (arr) => arr.length ? {
+    average: arr.reduce((a,b)=>a+b,0) / arr.length,
+    min: Math.min(...arr),
+    max: Math.max(...arr),
+    count: arr.length,
+  } : { average:0, min:0, max:0, count:0 };
+
+  const s6 = (stats6 && stats6.average !== undefined) ? stats6 : calcStats(sent);
+  const s7 = (stats7 && stats7.average !== undefined) ? stats7 : calcStats(recv);
+
+  // Stat cards: show Sent values with Recv appended in parens
+  updateStatElement('current-value', fmtS(curSent)  + '  /  ' + fmtS(curRecv));
+  updateStatElement('average-value', fmtS(s6.average) + '  /  ' + fmtS(s7.average));
+  updateStatElement('min-value',     fmtS(s6.min)     + '  /  ' + fmtS(s7.min));
+  updateStatElement('max-value',     fmtS(s6.max)     + '  /  ' + fmtS(s7.max));
+  updateStatElement('data-points',   String(s6.count || sent.length));
+
+  const mmEl = document.getElementById('min-max-values');
+  if (mmEl) mmEl.textContent = 'Sent: ' + fmtS(s6.min) + ' – ' + fmtS(s6.max) + '   Recv: ' + fmtS(s7.min) + ' – ' + fmtS(s7.max);
 }
 
 // ── Error handling ────────────────────────────────────────
@@ -371,12 +488,16 @@ function retryFetch() {
 
 // ── Export ────────────────────────────────────────────────
 function exportCurrentData() {
-  const link = document.createElement('a');
-  link.href     = `/export/${CURRENT_FIELD}/${currentPeriod}`;
-  link.download = `${CURRENT_FIELD}_${currentPeriod}_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const fields = CURRENT_FIELD === 'network' ? ['field6', 'field7'] : [CURRENT_FIELD];
+  const date   = new Date().toISOString().slice(0, 10);
+  fields.forEach(fld => {
+    const link = document.createElement('a');
+    link.href     = '/export/' + fld + '/' + currentPeriod;
+    link.download = fld + '_' + currentPeriod + '_' + date + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
 }
 
 // ── Debug helpers (kept for compat) ──────────────────────

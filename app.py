@@ -414,6 +414,22 @@ def graph(field):
         logger.error(f"Error in graph route: {e}")
         abort(500)
 
+
+@app.route('/graph/network')
+def graph_network():
+    """Render combined Network I/O graph (Bytes Sent + Bytes Received)"""
+    try:
+        logger.info("Rendering network I/O graph page")
+        return render_template(
+            'graph.html',
+            field='network',
+            field_name='Network I/O',
+            field_label='Network Traffic'
+        )
+    except Exception as e:
+        logger.error(f"Error in graph_network route: {e}")
+        abort(500)
+
 @app.route('/historic_data/<field>/<period>')
 @ratelimit()
 def historic_data(field, period):

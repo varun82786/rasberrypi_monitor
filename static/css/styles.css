@@ -724,6 +724,7 @@ kbd {
 .analysis-link[data-field="field6"] i { color: hsl(200, 70%, 55%); }
 .analysis-link[data-field="field7"] i { color: hsl(220, 65%, 62%); }
 .analysis-link[data-field="field8"] i { color: hsl(152, 60%, 48%); }
+.analysis-link[data-field="network"]  i { color: hsl(200, 70%, 55%); }
 
 .analysis-link:hover i { filter: brightness(1.2); }
 
