@@ -265,7 +265,13 @@
     </section>
 
     <!-- ── DETAILED ANALYSIS ─────────────────────────────── -->
-    <p class="section-label">Detailed Analysis</p>
+    <p class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      Detailed Analysis
+      <a href="/compare" class="compare-btn" id="compare-link" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:5px 12px;border-radius:6px;background:hsl(222,28%,14%);border:1px solid hsl(222,28%,20%);color:var(--text-2);text-decoration:none;transition:all 150ms ease;" onmouseover="this.style.background='hsl(222,28%,18%)';this.style.color='var(--text-1)'" onmouseout="this.style.background='hsl(222,28%,14%)';this.style.color='var(--text-2)'">
+        <i data-lucide="git-compare" style="width:12px;height:12px;" aria-hidden="true"></i>
+        Compare metrics
+      </a>
+    </p>
     <nav class="analysis-grid" aria-label="Detailed analysis links">
       <a href="/graph/field1" class="analysis-link" id="link-field1" data-field="field1">
         <i data-lucide="thermometer" aria-hidden="true"></i> CPU Temperature

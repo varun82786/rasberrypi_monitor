@@ -1,0 +1,382 @@
+/* ============================================================
+   RPi Monitor — compare.css
+   Styles for the cross-resource correlation page
+   ============================================================ */
+
+/* ── Page layout ──────────────────────────────────────────── */
+.compare-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+/* ── Correlation badge ────────────────────────────────────── */
+.corr-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: hsl(222, 36%, 10%);
+  border: 1px solid hsl(222, 28%, 18%);
+  transition: all 300ms ease;
+  flex-shrink: 0;
+}
+.corr-hidden { opacity: 0; pointer-events: none; transform: translateY(-6px); }
+.corr-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+.corr-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.corr-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  line-height: 1;
+}
+.corr-strength {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.corr-strength.strong-pos  { background: hsla(152,60%,48%,0.15); color: hsl(152,60%,58%); }
+.corr-strength.moderate-pos{ background: hsla(196,80%,48%,0.15); color: hsl(196,80%,58%); }
+.corr-strength.weak        { background: hsla(215,20%,64%,0.15); color: hsl(215,20%,74%); }
+.corr-strength.moderate-neg{ background: hsla(38, 90%,58%,0.15); color: hsl(38, 90%,68%); }
+.corr-strength.strong-neg  { background: hsla(0,  70%,55%,0.15); color: hsl(0,  70%,65%); }
+
+/* ── Section label with icon ──────────────────────────────── */
+.compare-page .section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-page .section-label svg { width: 13px; height: 13px; opacity: 0.7; }
+
+.selection-hint {
+  font-weight: 400;
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Field picker grid ────────────────────────────────────── */
+.compare-selector { margin-bottom: var(--s-4); }
+
+.field-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.field-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid hsl(222, 28%, 16%);
+  background: hsl(222, 36%, 8%);
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, transform 120ms ease;
+  user-select: none;
+  outline: none;
+}
+.field-card:hover {
+  border-color: hsl(222, 28%, 26%);
+  background: hsl(222, 36%, 10%);
+  transform: translateY(-1px);
+}
+.field-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field-card.selected-a {
+  border-color: hsl(196, 80%, 48%);
+  background: hsla(196, 80%, 48%, 0.06);
+}
+.field-card.selected-b {
+  border-color: hsl(270, 60%, 65%);
+  background: hsla(270, 60%, 65%, 0.06);
+}
+.field-card.disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+/* Badge: A or B shown in corner */
+.field-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.field-card.selected-a .field-card-badge {
+  opacity: 1;
+  background: hsla(196, 80%, 48%, 0.25);
+  color: hsl(196, 80%, 60%);
+  content: 'A';
+}
+.field-card.selected-b .field-card-badge {
+  opacity: 1;
+  background: hsla(270, 60%, 65%, 0.25);
+  color: hsl(270, 60%, 78%);
+}
+
+.field-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: hsl(222, 28%, 13%);
+  color: var(--text-2);
+  transition: background 180ms ease, color 180ms ease;
+  flex-shrink: 0;
+}
+.field-card-icon svg { width: 16px; height: 16px; }
+.field-card.selected-a .field-card-icon { background: hsla(196,80%,48%,0.15); color: hsl(196,80%,58%); }
+.field-card.selected-b .field-card-icon { background: hsla(270,60%,65%,0.15); color: hsl(270,60%,75%); }
+
+.field-card-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  line-height: 1.3;
+}
+.field-card-unit {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+/* ── Time range row ───────────────────────────────────────── */
+.segment-row {
+  margin-bottom: var(--s-4);
+}
+
+/* ── Compare stats panel ──────────────────────────────────── */
+.compare-stats {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: var(--s-4);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.compare-stats-hidden { opacity: 0; pointer-events: none; height: 0; overflow: hidden; margin: 0; }
+.compare-stats-visible { opacity: 1; pointer-events: auto; height: auto; }
+
+.cstat-group {
+  background: hsl(222, 36%, 8%);
+  border: 1px solid hsl(222, 28%, 16%);
+  border-radius: 12px;
+  padding: 16px;
+}
+.cstat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cstat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cstat-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+.cstat-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cstat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: hsl(222, 36%, 11%);
+  border-radius: 8px;
+}
+.cstat-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.cstat-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cstat-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  padding-top: 40px;
+}
+.cstat-divider svg { width: 18px; height: 18px; }
+
+/* ── Chart card ───────────────────────────────────────────── */
+.chart-card {
+  background: hsl(222, 36%, 8%);
+  border: 1px solid hsl(222, 28%, 16%);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: var(--s-4);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.compare-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+  min-height: 360px;
+  color: var(--text-3);
+}
+.compare-empty svg {
+  width: 40px; height: 40px;
+  opacity: 0.3;
+  stroke-width: 1;
+}
+.compare-empty strong { font-size: 14px; color: var(--text-2); }
+.compare-empty span   { font-size: 12px; }
+
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 360px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.chart-loading svg { width: 16px; height: 16px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 0;
+  gap: 12px;
+}
+.compare-legend {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.legend-line {
+  width: 24px;
+  height: 2.5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.data-point-count {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.chart-body {
+  padding: 12px 8px 8px;
+  flex: 1;
+  min-height: 340px;
+  position: relative;
+}
+.chart-body canvas {
+  width: 100% !important;
+  height: 340px !important;
+}
+
+/* ── Insight panel ────────────────────────────────────────── */
+.insight-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  background: hsl(222, 36%, 8%);
+  border: 1px solid hsl(222, 28%, 16%);
+  border-radius: 12px;
+  margin-bottom: var(--s-6);
+}
+.insight-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: hsla(38,90%,58%,0.12);
+  color: hsl(38,90%,68%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.insight-icon svg { width: 16px; height: 16px; }
+.insight-text {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin: 0;
+  padding-top: 6px;
+}
+.insight-text strong { color: var(--text-1); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .compare-stats {
+    grid-template-columns: 1fr;
+  }
+  .cstat-divider { display: none; }
+  .field-picker {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .corr-badge { width: 100%; }
+}

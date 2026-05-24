@@ -415,6 +415,17 @@ def graph(field):
         abort(500)
 
 
+
+@app.route('/compare')
+def compare():
+    """Cross-resource correlation analysis page"""
+    try:
+        logger.info("Rendering correlation analysis page")
+        return render_template('compare.html')
+    except Exception as e:
+        logger.error(f"Error in compare route: {e}")
+        abort(500)
+
 @app.route('/graph/network')
 def graph_network():
     """Render combined Network I/O graph (Bytes Sent + Bytes Received)"""
