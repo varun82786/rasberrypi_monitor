@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="System hardware, software, and network details for your Raspberry Pi.">
+  <title>System Information — RPi Monitor</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/system.css') }}" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="system-page">
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════ -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <a href="/" class="nav-logo" aria-label="RPi Monitor home">
+    <div class="nav-logo-icon" aria-hidden="true"><i data-lucide="cpu"></i></div>
+    <span class="nav-logo-text">RPi Monitor <span>/ System</span></span>
+  </a>
+
+  <div class="nav-divider" aria-hidden="true"></div>
+
+  <a href="/" class="back-link" aria-label="Return to dashboard">
+    <i data-lucide="arrow-left" aria-hidden="true"></i>
+    Dashboard
+  </a>
+
+  <a href="/compare" class="back-link" style="margin-left: 12px;" aria-label="Go to correlation comparison">
+    <i data-lucide="git-compare" aria-hidden="true"></i>
+    Compare
+  </a>
+
+  <div class="nav-collapse" id="nav-collapse">
+    <div class="nav-meta">
+      <span id="last-fetch" class="last-fetch" style="font-size:12px; color:var(--text-3);">—</span>
+      <button class="btn-nav btn-sm" id="refresh-btn" title="Refresh system info" aria-label="Refresh">
+        <i data-lucide="refresh-cw" aria-hidden="true"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <button class="nav-hamburger" id="hamburger-btn" aria-label="Toggle navigation"
+          aria-expanded="false" aria-controls="nav-collapse">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- ══ MAIN ═════════════════════════════════════════════════ -->
+<main class="main" id="main-content">
+  <div class="container">
+
+    <!-- Header -->
+    <header class="page-header animate-in">
+      <div>
+        <h1 class="page-title">System Information</h1>
+        <p class="page-subtitle">Hardware, software, and network details for this device</p>
+      </div>
+    </header>
+
+    <!-- Loading state -->
+    <div id="system-loading" class="system-loading">
+      <i data-lucide="loader-2" aria-hidden="true"></i>
+      Loading system information…
+    </div>
+
+    <!-- Error state -->
+    <div id="system-error" class="system-error" style="display:none;">
+      <i data-lucide="alert-triangle" aria-hidden="true"></i>
+      <strong>Failed to load</strong>
+      <span id="system-error-msg">Could not fetch system information</span>
+      <button class="btn btn-sm" id="retry-btn" style="margin-top:8px;">
+        <i data-lucide="refresh-cw" aria-hidden="true"></i> Retry
+      </button>
+    </div>
+
+    <!-- Content grid (hidden until data loads) -->
+    <section id="system-content" class="info-grid" style="display:none;" aria-label="System information panels">
+
+      <!-- ── Platform ──────────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-platform"><i data-lucide="monitor" aria-hidden="true"></i></div>
+          <span class="info-card-title">Platform</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Hostname</span>
+            <span class="info-row-value mono" id="val-hostname">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">OS</span>
+            <span class="info-row-value" id="val-os">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Kernel</span>
+            <span class="info-row-value mono" id="val-kernel">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Architecture</span>
+            <span class="info-row-value" id="val-arch">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Python</span>
+            <span class="info-row-value mono" id="val-python">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CPU ───────────────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-cpu"><i data-lucide="cpu" aria-hidden="true"></i></div>
+          <span class="info-card-title">CPU</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Model</span>
+            <span class="info-row-value" id="val-cpu-model">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Cores</span>
+            <span class="info-row-value" id="val-cpu-cores">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Temperature</span>
+            <span class="info-row-value" id="val-cpu-temp">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Usage</span>
+            <span class="info-row-value" id="val-cpu-usage">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Memory ────────────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-memory"><i data-lucide="memory-stick" aria-hidden="true"></i></div>
+          <span class="info-card-title">Memory</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Total</span>
+            <span class="info-row-value" id="val-mem-total">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Available</span>
+            <span class="info-row-value" id="val-mem-available">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Used</span>
+            <span class="info-row-value" id="val-mem-used">—</span>
+          </div>
+          <div id="mem-usage-bar"></div>
+        </div>
+      </div>
+
+      <!-- ── Disk ──────────────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-disk"><i data-lucide="hard-drive" aria-hidden="true"></i></div>
+          <span class="info-card-title">Disk</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Total</span>
+            <span class="info-row-value" id="val-disk-total">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Used</span>
+            <span class="info-row-value" id="val-disk-used">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Free</span>
+            <span class="info-row-value" id="val-disk-free">—</span>
+          </div>
+          <div id="disk-usage-bar"></div>
+        </div>
+      </div>
+
+      <!-- ── Network ───────────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-network"><i data-lucide="wifi" aria-hidden="true"></i></div>
+          <span class="info-card-title">Network</span>
+        </div>
+        <div class="info-card-body" id="network-list">
+          <div class="info-row">
+            <span class="info-row-label">STATUS</span>
+            <span class="info-row-value">Loading…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Application ───────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-app"><i data-lucide="flask-round" aria-hidden="true"></i></div>
+          <span class="info-card-title">Application</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Flask</span>
+            <span class="info-row-value mono" id="val-flask">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Uptime</span>
+            <span class="info-row-value" id="val-uptime">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Port</span>
+            <span class="info-row-value mono" id="val-port">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">API Status</span>
+            <span class="info-row-value" id="val-api-status">—</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </div><!-- /container -->
+</main>
+
+<script src="{{ url_for('static', filename='js/system.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    lucide.createIcons();
+
+    // Mobile hamburger toggle
+    var hamburger = document.getElementById('hamburger-btn');
+    var collapse = document.getElementById('nav-collapse');
+    if (hamburger && collapse) {
+      hamburger.addEventListener('click', function () {
+        var open = collapse.classList.toggle('open');
+        hamburger.setAttribute('aria-expanded', String(open));
+      });
+    }
+  });
+</script>
+</body>
+</html>

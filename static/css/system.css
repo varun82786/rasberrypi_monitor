@@ -1,0 +1,292 @@
+/* ============================================================
+   System Info Page — Panel Grid & Key-Value Layout
+   ============================================================ */
+
+/* ── Page body class ──────────────────────────────────────── */
+.system-page {
+  background: var(--bg-base);
+}
+
+/* ── Info grid — 2 columns, 1 on mobile ───────────────────── */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-5);
+  margin-bottom: var(--s-8);
+}
+
+@media (max-width: 700px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Info card ────────────────────────────────────────────── */
+.info-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: border-color var(--t-std) var(--ease-std),
+              box-shadow var(--t-std) var(--ease-std);
+  animation: fadeUp var(--t-slow) var(--ease-out) both;
+}
+
+.info-card:nth-child(1) { animation-delay: 0ms; }
+.info-card:nth-child(2) { animation-delay: 60ms; }
+.info-card:nth-child(3) { animation-delay: 120ms; }
+.info-card:nth-child(4) { animation-delay: 180ms; }
+.info-card:nth-child(5) { animation-delay: 240ms; }
+.info-card:nth-child(6) { animation-delay: 300ms; }
+
+.info-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 8px 24px hsla(222, 60%, 2%, 0.3);
+}
+
+/* ── Card header ──────────────────────────────────────────── */
+.info-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.info-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  color: var(--text-3);
+}
+
+.info-card-icon svg.lucide {
+  width: 15px;
+  height: 15px;
+}
+
+/* Per-card icon tints */
+.info-card-icon.icon-platform  { background: hsla(196, 80%, 48%, 0.10); color: hsl(196, 80%, 52%); }
+.info-card-icon.icon-cpu       { background: hsla(152, 60%, 48%, 0.10); color: hsl(152, 60%, 52%); }
+.info-card-icon.icon-memory    { background: hsla(38, 90%, 58%, 0.10);  color: hsl(38, 90%, 58%);  }
+.info-card-icon.icon-disk      { background: hsla(215, 70%, 60%, 0.10); color: hsl(215, 70%, 62%); }
+.info-card-icon.icon-network   { background: hsla(270, 60%, 65%, 0.10); color: hsl(270, 60%, 65%); }
+.info-card-icon.icon-app       { background: hsla(340, 65%, 55%, 0.10); color: hsl(340, 65%, 55%); }
+
+.info-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+
+/* ── Key-value rows ───────────────────────────────────────── */
+.info-card-body {
+  padding: var(--s-3) var(--s-5) var(--s-4);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  gap: var(--s-3);
+}
+
+.info-row + .info-row {
+  border-top: 1px solid hsla(222, 28%, 16%, 0.5);
+}
+
+.info-row-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.info-row-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  text-align: right;
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-row-value.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ── Usage bar ────────────────────────────────────────────── */
+.usage-bar-row {
+  padding-top: 4px;
+  padding-bottom: 2px;
+}
+
+.usage-bar-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s var(--ease-std), background 0.3s var(--ease-std);
+  min-width: 2px;
+}
+
+/* Severity colors */
+.usage-bar-fill.severity-ok      { background: var(--success); }
+.usage-bar-fill.severity-warning  { background: var(--warning); }
+.usage-bar-fill.severity-critical { background: var(--danger);  }
+
+.usage-percent {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-percent.severity-ok       { color: var(--success); }
+.usage-percent.severity-warning   { color: var(--warning); }
+.usage-percent.severity-critical  { color: var(--danger);  }
+
+/* ── Network interface list ───────────────────────────────── */
+.net-iface {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  gap: var(--s-3);
+}
+
+.net-iface + .net-iface {
+  border-top: 1px solid hsla(222, 28%, 16%, 0.5);
+}
+
+.net-iface-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.net-iface-addrs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.net-iface-addr {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+/* ── Loading state ────────────────────────────────────────── */
+.system-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: var(--s-12) 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.system-loading svg.lucide {
+  width: 24px;
+  height: 24px;
+  animation: spin 1.2s linear infinite;
+}
+
+/* ── Error state ──────────────────────────────────────────── */
+.system-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: var(--s-12) 0;
+  text-align: center;
+}
+
+.system-error svg.lucide {
+  width: 32px;
+  height: 32px;
+  color: var(--danger);
+  stroke-width: 1.25;
+}
+
+.system-error strong {
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.system-error span {
+  font-size: 12px;
+  color: var(--text-3);
+  max-width: 320px;
+}
+
+/* ── Refresh button in header ─────────────────────────────── */
+.refresh-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.refresh-row .btn-nav svg.lucide {
+  width: 13px;
+  height: 13px;
+}
+
+.refresh-row .last-fetch {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Status badge ─────────────────────────────────────────── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.status-pill.status-ok {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid hsla(152, 60%, 48%, 0.3);
+}
+
+.status-pill.status-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid hsla(4, 72%, 58%, 0.3);
+}
+
+.status-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

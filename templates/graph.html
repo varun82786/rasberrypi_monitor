@@ -17,6 +17,8 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
   <!-- Lucide icons (stroke-based, minimalist) -->
   <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
@@ -49,6 +51,7 @@
   </script>
 </head>
 <body class="graph-page">
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
 
 <!-- ══ NAVBAR ══════════════════════════════════════════════ -->
 <nav class="navbar" role="navigation" aria-label="Main navigation">
@@ -64,6 +67,16 @@
   <a href="/" class="back-link" aria-label="Return to dashboard">
     <i data-lucide="arrow-left" aria-hidden="true"></i>
     Dashboard
+  </a>
+
+  <a href="/system" class="back-link" style="margin-left: 12px;" aria-label="Go to system diagnostics">
+    <i data-lucide="monitor" aria-hidden="true"></i>
+    System
+  </a>
+
+  <a href="/compare" class="back-link" style="margin-left: 12px;" aria-label="Go to correlation comparison">
+    <i data-lucide="git-compare" aria-hidden="true"></i>
+    Compare
   </a>
 
   <div class="nav-collapse" id="nav-collapse">
@@ -148,6 +161,12 @@
           <span id="chart-title-text">Loading&hellip;</span>
         </div>
         <div class="chart-actions">
+          <button class="btn btn-sm btn-icon" id="btn-reset-zoom" onclick="resetZoom()" title="Reset zoom" aria-label="Reset zoom" style="display:none;">
+            <i data-lucide="maximize-2" aria-hidden="true"></i>
+          </button>
+          <button class="btn btn-sm btn-icon" id="btn-toggle-anomaly" onclick="toggleAnomalyHighlight()" title="Toggle anomaly detection" aria-label="Toggle anomaly detection">
+            <i data-lucide="scan-search" aria-hidden="true"></i>
+          </button>
           <button class="btn btn-sm btn-icon" onclick="exportCurrentData()" title="Export data as CSV" aria-label="Export CSV">
             <i data-lucide="download" aria-hidden="true"></i>
           </button>

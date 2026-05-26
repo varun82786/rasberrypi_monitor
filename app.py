@@ -426,6 +426,71 @@ def compare():
         logger.error(f"Error in compare route: {e}")
         abort(500)
 
+@app.route('/api/compare/<field1>/<field2>/<period>')
+@ratelimit()
+def api_compare(field1, field2, period):
+    """API endpoint to fetch data for comparison of two metrics in one request"""
+    try:
+        field1 = sanitize_input(field1)
+        field2 = sanitize_input(field2)
+        period = sanitize_input(period)
+        
+        validate_field(field1)
+        validate_field(field2)
+        validate_period(period)
+        
+        results_map = {
+            'live': 15, '30min': 30, '1hr': 60, '3hrs': 180,
+            '6hrs': 360, '12hrs': 720, '24hrs': 1440, '48hrs': 2880, '72hrs': 4320
+        }
+        results = results_map[period]
+        
+        # Check cache
+        cache_key = f'compare_{field1}_{field2}_{period}'
+        cached_data = get_cache(cache_key)
+        if cached_data:
+            cached_data['cache_hit'] = True
+            return jsonify(cached_data)
+            
+        # Fetch fresh data (ThingSpeak API feeds contain both fields automatically)
+        api_data = fetch_from_thingspeak(results)
+        feeds = api_data.get('feeds', [])
+        
+        # Calculate statistics
+        if feeds:
+            vals1 = [feed.get(field1) for feed in feeds if feed.get(field1) is not None]
+            vals2 = [feed.get(field2) for feed in feeds if feed.get(field2) is not None]
+            stats1 = calculate_statistics(vals1)
+            stats2 = calculate_statistics(vals2)
+        else:
+            stats1 = {'average': 0, 'min': 0, 'max': 0, 'count': 0}
+            stats2 = {'average': 0, 'min': 0, 'max': 0, 'count': 0}
+            
+        response_data = {
+            'feeds': feeds,
+            'field1': field1,
+            'field2': field2,
+            'statistics1': stats1,
+            'statistics2': stats2,
+            'period': period,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'ok'
+        }
+        
+        set_cache(cache_key, response_data)
+        return jsonify(response_data)
+        
+    except (ValidationError, APIError):
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in /api/compare endpoint: {e}")
+        return jsonify({
+            'error': 'Internal Error',
+            'message': 'Failed to fetch comparison data',
+            'timestamp': datetime.now().isoformat(),
+            'status': 'error'
+        }), 500
+
 @app.route('/graph/network')
 def graph_network():
     """Render combined Network I/O graph (Bytes Sent + Bytes Received)"""
@@ -680,6 +745,177 @@ def export_csv(field, period):
         return jsonify({
             'error': 'Export Error',
             'message': 'Failed to generate CSV export',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/system')
+def system_page():
+    """System information diagnostics page"""
+    try:
+        logger.info('Rendering system info page')
+        return render_template('system.html')
+    except Exception as e:
+        logger.error(f'Error in system route: {e}')
+        abort(500)
+
+@app.route('/api/system')
+@ratelimit()
+def api_system():
+    """API endpoint returning system diagnostics data"""
+    import platform
+    import sys
+    import psutil
+    import socket
+    
+    try:
+        # CPU temp
+        cpu_temp = None
+        # Try psutil.sensors_temperatures()
+        try:
+            temps = psutil.sensors_temperatures()
+            if 'cpu_thermal' in temps:
+                cpu_temp = temps['cpu_thermal'][0].current
+            elif 'cpu-thermal' in temps:
+                cpu_temp = temps['cpu-thermal'][0].current
+            else:
+                for name, entries in temps.items():
+                    if 'cpu' in name.lower() or 'core' in name.lower():
+                        if entries:
+                            cpu_temp = entries[0].current
+                            break
+        except Exception:
+            pass
+
+        # Try sys thermal if None
+        if cpu_temp is None:
+            try:
+                if os.path.exists("/sys/class/thermal/thermal_zone0/temp"):
+                    with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+                        cpu_temp = float(f.read().strip()) / 1000.0
+            except Exception:
+                pass
+
+        # Try vcgencmd if None
+        if cpu_temp is None:
+            try:
+                res = os.popen("vcgencmd measure_temp").readline()
+                if "temp=" in res:
+                    cpu_temp = float(res.replace("temp=", "").replace("'C\n", ""))
+            except Exception:
+                pass
+
+        # Network interfaces
+        network_info = {}
+        try:
+            addrs = psutil.net_if_addrs()
+            for interface, snics in addrs.items():
+                ips = []
+                for snic in snics:
+                    if snic.family == socket.AF_INET:
+                        ips.append(snic.address)
+                    elif snic.family == socket.AF_INET6:
+                        # Simple IPv6 address formatting
+                        ips.append(snic.address)
+                if ips:
+                    network_info[interface] = ips
+        except Exception as e:
+            logger.error(f"Error getting network info: {e}")
+
+        # Memory details
+        mem = psutil.virtual_memory()
+        memory_info = {
+            'total': mem.total,
+            'available': mem.available,
+            'used': mem.used,
+            'percent': mem.percent
+        }
+
+        # Disk details
+        disk = psutil.disk_usage('/')
+        disk_info = {
+            'total': disk.total,
+            'used': disk.used,
+            'free': disk.free,
+            'percent': disk.percent
+        }
+
+        # CPU details
+        cpu_usage = psutil.cpu_percent(interval=None)
+        cpu_cores = psutil.cpu_count(logical=True)
+        # Processor model
+        cpu_model = platform.processor() or "Unknown CPU"
+        if not cpu_model or cpu_model == "Unknown CPU":
+            # On linux/RPi, platform.processor() is empty, try reading /proc/cpuinfo
+            try:
+                if os.path.exists("/proc/cpuinfo"):
+                    with open("/proc/cpuinfo", "r") as f:
+                        for line in f:
+                            if "model name" in line or "Processor" in line:
+                                cpu_model = line.split(":", 1)[1].strip()
+                                break
+            except Exception:
+                pass
+
+        cpu_info = {
+            'model': cpu_model,
+            'count': cpu_cores,
+            'temperature': round(cpu_temp, 1) if cpu_temp is not None else None,
+            'usage_percent': cpu_usage
+        }
+
+        # App status
+        try:
+            test_data = fetch_from_thingspeak(1)
+            api_status = 'healthy' if test_data.get('feeds') else 'degraded'
+        except Exception:
+            api_status = 'offline'
+
+        # App uptime formatting
+        uptime_seconds = time() - app.start_time
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
+        minutes = int((uptime_seconds % 3600) // 60)
+        seconds = int(uptime_seconds % 60)
+        uptime_parts = []
+        if days > 0:
+            uptime_parts.append(f"{days}d")
+        if hours > 0:
+            uptime_parts.append(f"{hours}h")
+        if minutes > 0:
+            uptime_parts.append(f"{minutes}m")
+        if seconds > 0 or not uptime_parts:
+            uptime_parts.append(f"{seconds}s")
+        app_uptime = " ".join(uptime_parts)
+
+        import flask
+        app_info = {
+            'flask_version': flask.__version__,
+            'uptime': app_uptime,
+            'port': int(os.getenv('FLASK_PORT', '6060')),
+            'api_status': api_status
+        }
+
+        system_data = {
+            'hostname': platform.node(),
+            'os': f"{platform.system()} {platform.release()}",
+            'kernel': platform.release(),
+            'architecture': platform.machine(),
+            'python_version': platform.python_version(),
+            'cpu': cpu_info,
+            'memory': memory_info,
+            'disk': disk_info,
+            'network': network_info,
+            'application': app_info,
+            'timestamp': datetime.now().isoformat()
+        }
+
+        return jsonify(system_data)
+
+    except Exception as e:
+        logger.error(f"Error in api_system endpoint: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
 

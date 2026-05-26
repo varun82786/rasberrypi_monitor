@@ -21,6 +21,50 @@ const STATE = {
   lastSuccessfulUpdate: null,
 };
 
+// ── Anomaly detection state ─────────────────────────────────
+let anomalyEnabled = true;
+let lastValues = [];     // stored for re-render on toggle
+let lastLabels = [];
+let lastData = {};
+let lastDatasets = null;
+
+// Compute rolling stats and flag anomalies (>2σ from rolling mean)
+function detectAnomalies(values, windowSize = 10) {
+  const flags = new Array(values.length).fill(false);
+  for (let i = windowSize; i < values.length; i++) {
+    const win = values.slice(i - windowSize, i);
+    const mean = win.reduce((a, b) => a + b, 0) / win.length;
+    const variance = win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length;
+    const std = Math.sqrt(variance);
+    if (std > 0 && Math.abs(values[i] - mean) > 2 * std) {
+      flags[i] = true;
+    }
+  }
+  return flags;
+}
+
+function toggleAnomalyHighlight() {
+  anomalyEnabled = !anomalyEnabled;
+  const btn = document.getElementById('btn-toggle-anomaly');
+  if (btn) {
+    btn.style.background = anomalyEnabled ? 'hsla(38, 90%, 58%, 0.15)' : '';
+    btn.style.color = anomalyEnabled ? 'hsl(38, 90%, 68%)' : '';
+    btn.title = anomalyEnabled ? 'Anomaly detection ON' : 'Anomaly detection OFF';
+  }
+  // Re-render chart with current data
+  if (lastLabels.length) {
+    updateChart(lastLabels, lastValues, lastData, lastDatasets);
+  }
+}
+
+function resetZoom() {
+  if (chart) {
+    chart.resetZoom();
+    const btn = document.getElementById('btn-reset-zoom');
+    if (btn) btn.style.display = 'none';
+  }
+}
+
 // ── Chart.js global defaults ──────────────────────────────
 Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
 Chart.defaults.font.size = 11;
@@ -107,6 +151,36 @@ function updateChart(labels, values, data = {}, datasets = null) {
     const color = getFieldColor();
     const grad  = buildGradient(ctx, height, color);
     const label = (window.FIELD_LABELS || {})[CURRENT_FIELD] || CURRENT_FIELD;
+    // Anomaly detection: flag outliers with different point styling
+    const anomalyFlags = (anomalyEnabled && values) ? detectAnomalies(values) : [];
+    const anomalyCount = anomalyFlags.filter(Boolean).length;
+
+    // Update anomaly counter in header (if element exists)
+    const anomalyBadge = document.getElementById('anomaly-count');
+    if (!anomalyBadge) {
+      // Create badge in chart actions if not present
+      const actionsEl = document.querySelector('.chart-actions');
+      if (actionsEl && anomalyCount > 0) {
+        const badge = document.createElement('span');
+        badge.id = 'anomaly-count';
+        badge.className = 'anomaly-badge';
+        badge.textContent = anomalyCount + ' anomal' + (anomalyCount === 1 ? 'y' : 'ies');
+        actionsEl.prepend(badge);
+      }
+    } else {
+      anomalyBadge.textContent = anomalyCount > 0
+        ? anomalyCount + ' anomal' + (anomalyCount === 1 ? 'y' : 'ies')
+        : '';
+      anomalyBadge.style.display = anomalyCount > 0 ? 'inline-flex' : 'none';
+    }
+
+    const ptBgColors = values
+      ? values.map((_, i) => anomalyFlags[i] ? 'hsl(0, 70%, 55%)' : color)
+      : color;
+    const ptRadii = values
+      ? values.map((_, i) => anomalyFlags[i] ? 6 : ptRadius)
+      : ptRadius;
+
     chartDatasets = [{
       label,
       data: values,
@@ -115,10 +189,12 @@ function updateChart(labels, values, data = {}, datasets = null) {
       borderWidth: 2,
       fill: true,
       tension: 0.45,
-      pointRadius: ptRadius,
+      pointRadius: ptRadii,
       pointHoverRadius: 6,
-      pointBackgroundColor: color,
-      pointBorderColor: 'hsl(222, 47%, 4%)',
+      pointBackgroundColor: ptBgColors,
+      pointBorderColor: values
+        ? values.map((_, i) => anomalyFlags[i] ? 'hsl(0, 90%, 70%)' : 'hsl(222, 47%, 4%)')
+        : 'hsl(222, 47%, 4%)',
       pointBorderWidth: 1.5,
     }];
   }
@@ -198,6 +274,19 @@ function updateChart(labels, values, data = {}, datasets = null) {
             },
             border: { display: false },
           },
+        },
+        // Zoom & Pan plugin
+        zoom: {
+          zoom: {
+            drag: { enabled: true, backgroundColor: 'hsla(196, 80%, 48%, 0.08)', borderColor: 'hsl(196, 80%, 48%)', borderWidth: 1 },
+            mode: 'x',
+            onZoomComplete: () => {
+              const btn = document.getElementById('btn-reset-zoom');
+              if (btn) btn.style.display = 'inline-flex';
+            },
+          },
+          pan: { enabled: true, mode: 'x' },
+          limits: { x: { minRange: 3 } },
         },
       },
     });
@@ -381,10 +470,14 @@ function fetchData_period(period) {
       const TEAL = 'hsl(200, 70%, 55%)';
       const BLUE = 'hsl(220, 65%, 62%)';
 
-      updateChart(labels, null, {}, [
+      lastDatasets = [
         { label: '↑ Bytes Sent',     values: sent, color: TEAL },
         { label: '↓ Bytes Received', values: recv, color: BLUE },
-      ]);
+      ];
+      lastLabels = labels;
+      lastValues = null;
+      lastData = {};
+      updateChart(labels, null, {}, lastDatasets);
 
       // Stats: show Sent current + Recv current side-by-side
       updateNetworkStats(sent, recv, d6.statistics, d7.statistics);
@@ -418,6 +511,12 @@ function fetchData_period(period) {
       const feeds  = data.feeds || [];
       const labels = feeds.map(f => extractISTTime(f.created_at));
       const values = feeds.map(f => parseFloat(f[CURRENT_FIELD]) || 0);
+
+      // Store for anomaly toggle re-render
+      lastLabels = labels;
+      lastValues = values;
+      lastData = data;
+      lastDatasets = null;
 
       updateChart(labels, values, data);
       updateStatistics(values, data.statistics);

@@ -190,6 +190,27 @@ kbd {
 .gap-3 { gap: var(--s-3); }
 .gap-4 { gap: var(--s-4); }
 
+/* ── Skip to content link ── */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: var(--text-base-inv, hsl(222, 47%, 4%));
+  padding: 8px 16px;
+  z-index: 1000;
+  font-weight: 600;
+  font-size: 12px;
+  transition: top 0.2s;
+  text-decoration: none;
+  border-bottom-right-radius: 4px;
+}
+
+.skip-to-content:focus {
+  top: 0;
+  outline: 2px solid var(--accent);
+}
+
 /* ── 5. Navbar ────────────────────────────────────────────── */
 .navbar {
   position: sticky;
@@ -1191,5 +1212,17 @@ kbd {
 @media (min-width: 1600px) {
   .metrics-grid {
     grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ── Accessibility ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: -1ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

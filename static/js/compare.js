@@ -70,6 +70,7 @@ function pearson(x, y) {
   return denom === 0 ? 0 : num / denom;
 }
 
+// Strength class mapping
 function corrStrengthClass(r) {
   const abs = Math.abs(r);
   const sign = r >= 0 ? 'pos' : 'neg';
@@ -116,6 +117,15 @@ function makeGradient(ctx, height, color) {
   g.addColorStop(0.6, hsla + '0.06)');
   g.addColorStop(1,   hsla + '0)');
   return g;
+}
+
+// ── Reset Zoom ─────────────────────────────────────────────
+function resetCompareZoom() {
+  if (compareChart) {
+    compareChart.resetZoom();
+    const btn = document.getElementById('btn-reset-zoom-compare');
+    if (btn) btn.style.display = 'none';
+  }
 }
 
 // ── Render chart ───────────────────────────────────────────
@@ -195,6 +205,23 @@ function renderCompareChart(labels, valsA, valsB, cfgA, cfgB) {
               return '  ' + cfg.name + ':  ' + fmtVal(cfg, v);
             },
           },
+        },
+        zoom: {
+          zoom: {
+            drag: {
+              enabled: true,
+              backgroundColor: 'hsla(196, 80%, 48%, 0.08)',
+              borderColor: 'hsl(196, 80%, 48%)',
+              borderWidth: 1
+            },
+            mode: 'x',
+            onZoomComplete: () => {
+              const btn = document.getElementById('btn-reset-zoom-compare');
+              if (btn) btn.style.display = 'inline-flex';
+            },
+          },
+          pan: { enabled: true, mode: 'x' },
+          limits: { x: { minRange: 3 } },
         },
       },
       scales: {
@@ -309,30 +336,22 @@ async function fetchAndPlot() {
   document.getElementById('compare-chart-header').style.display = 'none';
   document.getElementById('chart-body-wrapper').style.display = 'none';
   document.getElementById('compare-loading').style.display    = 'flex';
+  
+  const zoomBtn = document.getElementById('btn-reset-zoom-compare');
+  if (zoomBtn) zoomBtn.style.display = 'none';
 
   try {
-    const [rA, rB] = await Promise.all([
-      fetch('/historic_data/' + selectedA.id + '/' + currentPeriod),
-      fetch('/historic_data/' + selectedB.id + '/' + currentPeriod),
-    ]);
+    const res = await fetch(`/api/compare/${selectedA.id}/${selectedB.id}/${currentPeriod}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.message || data.error);
 
-    if (!rA.ok) throw new Error('HTTP ' + rA.status + ' for ' + selectedA.id);
-    if (!rB.ok) throw new Error('HTTP ' + rB.status + ' for ' + selectedB.id);
+    const feeds = data.feeds || [];
+    const labels = feeds.map(f => extractISTTime(f.created_at));
+    const valsA  = feeds.map(f => parseFloat(f[selectedA.id]) || 0);
+    const valsB  = feeds.map(f => parseFloat(f[selectedB.id]) || 0);
 
-    const [dA, dB] = await Promise.all([rA.json(), rB.json()]);
-
-    if (dA.error) throw new Error(dA.message || dA.error);
-    if (dB.error) throw new Error(dB.message || dB.error);
-
-    const feedsA = dA.feeds || [];
-    const feedsB = dB.feeds || [];
-
-    // Align on A's timestamps (both from same ThingSpeak channel → same length)
-    const labels = feedsA.map(f => extractISTTime(f.created_at));
-    const valsA  = feedsA.map(f => parseFloat(f[selectedA.id]) || 0);
-    const valsB  = feedsB.map(f => parseFloat(f[selectedB.id]) || 0);
-
-    renderResults(labels, valsA, valsB, dA.statistics, dB.statistics);
+    renderResults(labels, valsA, valsB, data.statistics1, data.statistics2);
 
   } catch (err) {
     console.error('Compare fetch error:', err);
@@ -352,7 +371,9 @@ async function fetchAndPlot() {
 // ── Show/hide stats panel ──────────────────────────────────
 function showStats(show) {
   const panel = document.getElementById('compare-stats');
-  panel.className = 'compare-stats ' + (show ? 'compare-stats-visible' : 'compare-stats-hidden');
+  if (panel) {
+    panel.className = 'compare-stats ' + (show ? 'compare-stats-visible' : 'compare-stats-hidden');
+  }
 }
 
 // ── Field card selection ───────────────────────────────────
@@ -372,22 +393,8 @@ function selectField(cfg) {
   }
 
   updatePickerUI();
-
-  const hint = document.getElementById('selection-hint');
-  const count = (selectedA ? 1 : 0) + (selectedB ? 1 : 0);
-  if (count === 0) hint.textContent = '— select 2 metrics';
-  else if (count === 1) hint.textContent = '— select 1 more';
-  else hint.textContent = '';
-
-  // Update stat headers
-  document.getElementById('dot-a').style.background  = selectedA ? selectedA.color : 'var(--text-3)';
-  document.getElementById('name-a').textContent = selectedA ? selectedA.name : '—';
-  document.getElementById('dot-b').style.background  = selectedB ? selectedB.color : 'var(--text-3)';
-  document.getElementById('name-b').textContent = selectedB ? selectedB.name : '—';
-
-  // Debug
-  document.getElementById('debug-selection').textContent =
-    (selectedA ? selectedA.id : '—') + ' vs ' + (selectedB ? selectedB.id : '—');
+  updateLabelsAndStatsUI();
+  updateUrlHash();
 
   if (selectedA && selectedB) {
     fetchAndPlot();
@@ -417,19 +424,115 @@ function updatePickerUI() {
 
     if (selectedA && selectedA.id === id) {
       card.classList.add('selected-a');
-      badge.textContent = 'A';
+      if (badge) badge.textContent = 'A';
     } else if (selectedB && selectedB.id === id) {
       card.classList.add('selected-b');
-      badge.textContent = 'B';
+      if (badge) badge.textContent = 'B';
     } else {
-      badge.textContent = '';
+      if (badge) badge.textContent = '';
     }
+  });
+}
+
+function updateLabelsAndStatsUI() {
+  const hint = document.getElementById('selection-hint');
+  const count = (selectedA ? 1 : 0) + (selectedB ? 1 : 0);
+  if (hint) {
+    if (count === 0) hint.textContent = '— select 2 metrics';
+    else if (count === 1) hint.textContent = '— select 1 more';
+    else hint.textContent = '';
+  }
+
+  const dotA = document.getElementById('dot-a');
+  if (dotA) dotA.style.background  = selectedA ? selectedA.color : 'var(--text-3)';
+  const nameA = document.getElementById('name-a');
+  if (nameA) nameA.textContent = selectedA ? selectedA.name : '—';
+  
+  const dotB = document.getElementById('dot-b');
+  if (dotB) dotB.style.background  = selectedB ? selectedB.color : 'var(--text-3)';
+  const nameB = document.getElementById('name-b');
+  if (nameB) nameB.textContent = selectedB ? selectedB.name : '—';
+
+  const debugSel = document.getElementById('debug-selection');
+  if (debugSel) {
+    debugSel.textContent = (selectedA ? selectedA.id : '—') + ' vs ' + (selectedB ? selectedB.id : '—');
+  }
+}
+
+// ── Presets ────────────────────────────────────────────────
+function applyPreset(idA, idB) {
+  selectedA = FIELD_CATALOG.find(c => c.id === idA) || null;
+  selectedB = FIELD_CATALOG.find(c => c.id === idB) || null;
+
+  updatePickerUI();
+  updateLabelsAndStatsUI();
+  updateUrlHash();
+
+  if (selectedA && selectedB) {
+    fetchAndPlot();
+  }
+}
+
+// ── Shareable URLs ─────────────────────────────────────────
+function updateUrlHash() {
+  if (selectedA && selectedB) {
+    window.location.hash = `a=${selectedA.id}&b=${selectedB.id}&period=${currentPeriod}`;
+  } else if (selectedA) {
+    window.location.hash = `a=${selectedA.id}&period=${currentPeriod}`;
+  } else {
+    window.location.hash = `period=${currentPeriod}`;
+  }
+}
+
+function restoreFromHash() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const aId = params.get('a');
+  const bId = params.get('b');
+  const period = params.get('period');
+
+  if (period) {
+    setActivePeriod(period);
+  }
+  if (aId) {
+    selectedA = FIELD_CATALOG.find(c => c.id === aId) || null;
+  }
+  if (bId) {
+    selectedB = FIELD_CATALOG.find(c => c.id === bId) || null;
+  }
+
+  updatePickerUI();
+  updateLabelsAndStatsUI();
+  
+  if (selectedA && selectedB) {
+    fetchAndPlot();
+  }
+}
+
+function copyShareLink() {
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('[onclick="copyShareLink()"]');
+    if (btn) {
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<i data-lucide="check" aria-hidden="true"></i> Copied!';
+      lucide.createIcons({ nodes: [btn] });
+      setTimeout(() => {
+        btn.innerHTML = origText;
+        lucide.createIcons({ nodes: [btn] });
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy share link:', err);
+    alert('Failed to copy share link to clipboard.');
   });
 }
 
 // ── Build field picker cards ───────────────────────────────
 function buildFieldPicker() {
   const picker = document.getElementById('field-picker');
+  if (!picker) return;
   FIELD_CATALOG.forEach(cfg => {
     const card = document.createElement('div');
     card.className = 'field-card';
@@ -464,7 +567,9 @@ function setActivePeriod(period) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  document.getElementById('debug-period').textContent = period;
+  const debugPrd = document.getElementById('debug-period');
+  if (debugPrd) debugPrd.textContent = period;
+  updateUrlHash();
 }
 
 // ── Export ─────────────────────────────────────────────────
@@ -507,14 +612,20 @@ function initComparePage() {
   // Re-render Lucide icons inside cards
   lucide.createIcons();
 
+  // Restore selections and period from URL hash if present
+  restoreFromHash();
+
   // Period control
-  document.getElementById('segment-group').addEventListener('click', e => {
-    const btn = e.target.closest('[data-period]');
-    if (!btn) return;
-    const period = btn.getAttribute('data-period');
-    setActivePeriod(period);
-    if (selectedA && selectedB) fetchAndPlot();
-  });
+  const segGrp = document.getElementById('segment-group');
+  if (segGrp) {
+    segGrp.addEventListener('click', e => {
+      const btn = e.target.closest('[data-period]');
+      if (!btn) return;
+      const period = btn.getAttribute('data-period');
+      setActivePeriod(period);
+      if (selectedA && selectedB) fetchAndPlot();
+    });
+  }
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {

@@ -21,6 +21,7 @@
   <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
 
 <!-- ══ NAVBAR ══════════════════════════════════════════════ -->
 <nav class="navbar" role="navigation" aria-label="Main navigation">
@@ -32,6 +33,13 @@
   </a>
 
   <div class="nav-divider" aria-hidden="true"></div>
+
+  <a href="/system" class="nav-link-item" style="font-size:12px; color:var(--text-2); text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:500; transition: color 150ms ease; margin-right: 12px;" onmouseover="this.style.color='var(--text-1)'" onmouseout="this.style.color='var(--text-2)'">
+    <i data-lucide="monitor" style="width:14px; height:14px;"></i> System
+  </a>
+  <a href="/compare" class="nav-link-item" style="font-size:12px; color:var(--text-2); text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:500; transition: color 150ms ease; margin-right: 16px;" onmouseover="this.style.color='var(--text-1)'" onmouseout="this.style.color='var(--text-2)'">
+    <i data-lucide="git-compare" style="width:14px; height:14px;"></i> Compare
+  </a>
 
   <!-- Connection status -->
   <div class="nav-status" aria-live="polite" aria-label="Connection status">
@@ -293,6 +301,9 @@
       </a>
       <a href="/graph/field8" class="analysis-link" id="link-field8" data-field="field8">
         <i data-lucide="timer" aria-hidden="true"></i> System Uptime
+      </a>
+      <a href="/system" class="analysis-link" id="link-system" style="border-color: hsla(196, 80%, 48%, 0.25);">
+        <i data-lucide="monitor" aria-hidden="true"></i> System Diagnostics
       </a>
     </nav>
 
