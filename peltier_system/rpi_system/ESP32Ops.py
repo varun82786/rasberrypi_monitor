@@ -1,4 +1,5 @@
 import requests
+import os
 
 from sysMonitor import *
 from ESP32Ops import *
@@ -7,7 +8,7 @@ from thingsSpeak import *
 
 
 
-ESP32_IP = "http://192.168.31.74:8080"  # Replace with ESP32 IP address
+ESP32_IP = os.getenv("ESP32_IP", "http://192.168.31.74:8080")
 
 #ESP32_IP = "http://192.168.1.105:8080"  # Replace with ESP32 IP address
 ts_counter = 0; # counter for sending data to things speak
@@ -56,10 +57,10 @@ def send_data_to_esp32(cpu_usage, cpu_temp, night_mode, past_avg_temp, lowest_te
             "past_avg_temp": past_avg_temp,
             "lowest_temp": lowest_temp,
         }
-        response = requests.post(f"{ESP32_IP}/data", json=payload)
+        response = requests.post(f"{ESP32_IP}/data", json=payload, timeout=5)
         if response.status_code == 200:
             print("Response from ESP32:", response.json())
         else:
-            print("Failed to send data to ESP32.")
-    except Exception as e:
+            print(f"Failed to send data to ESP32. status={response.status_code}, body={response.text[:200]}")
+    except requests.exceptions.RequestException as e:
         print(f"Error sending data to ESP32: {e}")
