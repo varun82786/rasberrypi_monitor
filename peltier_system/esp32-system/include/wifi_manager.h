@@ -10,5 +10,6 @@ void initWiFi(const char* ssid, const char* password);
 void startWebServer();
 bool hasRecentRpiData(unsigned long maxAgeMs);
 unsigned long millisSinceLastRpiData();
+String getLastRpiIp();
 
 #endif

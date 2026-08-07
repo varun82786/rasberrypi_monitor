@@ -1,4 +1,5 @@
 #include "sensor_manager.h"
+#include "wifi_manager.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
 
@@ -49,6 +50,20 @@ bool tryPostPayload(const String& endpoint, const String& payload) {
     http.end();
     return false;
 }
+
+void addUniqueEndpoint(String* endpoints, int& count, const String& endpoint) {
+    if (endpoint.length() == 0) {
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (endpoints[i] == endpoint) {
+            return;
+        }
+    }
+
+    endpoints[count++] = endpoint;
+}
 }  // namespace
 
 void handleSensorData(float &sensorData, float sensorThreshold, bool &isSendingData, unsigned long &startTime) {
@@ -75,20 +90,23 @@ void sendDataToRaspberryPi(const char* serverUrl, float Data) {
     String host = hostFromUrl(primaryBase);
 
     // Try configured endpoint first, then fallback ports used in this repo.
-    String endpoints[3];
+    String endpoints[6];
     int endpointCount = 0;
-    endpoints[endpointCount++] = buildEndpoint(primaryBase);
+    addUniqueEndpoint(endpoints, endpointCount, buildEndpoint(primaryBase));
+
+    // Prefer the source IP of the most recent RPi packet if available.
+    String learnedRpiIp = getLastRpiIp();
+    if (learnedRpiIp.length() > 0) {
+        addUniqueEndpoint(endpoints, endpointCount, "http://" + learnedRpiIp + ":5000/data");
+        addUniqueEndpoint(endpoints, endpointCount, "http://" + learnedRpiIp + ":6060/data");
+    }
 
     if (host.length() > 0) {
         String fallback5000 = "http://" + host + ":5000/data";
         String fallback6060 = "http://" + host + ":6060/data";
 
-        if (fallback5000 != endpoints[0]) {
-            endpoints[endpointCount++] = fallback5000;
-        }
-        if (fallback6060 != endpoints[0] && fallback6060 != endpoints[1]) {
-            endpoints[endpointCount++] = fallback6060;
-        }
+        addUniqueEndpoint(endpoints, endpointCount, fallback5000);
+        addUniqueEndpoint(endpoints, endpointCount, fallback6060);
     }
 
     for (int i = 0; i < endpointCount; i++) {

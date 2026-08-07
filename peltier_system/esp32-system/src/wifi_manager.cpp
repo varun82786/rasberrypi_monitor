@@ -6,6 +6,7 @@ extern RpiMetrics RpiData; // Global Variable to get store data
 WebServer server(8080);  // Initialize the web server on port 80
 static unsigned long lastRpiDataMs = 0;
 static bool hasRpiData = false;
+static String lastRpiIp = "";
 
 void initWiFi(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
@@ -35,8 +36,10 @@ void startWebServer() {
         RpiData = processReceivedData(jsonData);  // Parse JSON and store data in global variable
         lastRpiDataMs = millis();
         hasRpiData = true;
+        lastRpiIp = server.client().remoteIP().toString();
 
         Serial.println("Data received from Raspberry Pi: " + jsonData);
+        Serial.println("RPi source IP: " + lastRpiIp);
         server.send(200, "application/json", "{\"message\": \"Data received successfully!\"}");
     });
 
@@ -57,4 +60,8 @@ unsigned long millisSinceLastRpiData() {
         return millis();
     }
     return millis() - lastRpiDataMs;
+}
+
+String getLastRpiIp() {
+    return lastRpiIp;
 }
