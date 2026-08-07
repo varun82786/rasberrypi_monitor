@@ -4,6 +4,7 @@ RpiMetrics processReceivedData(const String& jsonData) {
     JsonDocument doc;
 
     RpiMetrics data{};
+    data.fan_mode_override = "auto";
 
     // Parse JSON
     DeserializationError error = deserializeJson(doc, jsonData);
@@ -18,6 +19,8 @@ RpiMetrics processReceivedData(const String& jsonData) {
     data.night_mode = doc["night_mode"] | false;
     data.past_avg_temp = doc["past_avg_temp"] | 0.0f;
     data.lowest_temp = doc["lowest_temp"] | 0.0f;
+    data.fan_mode_override = String(doc["mode"] | doc["fan_mode_override"] | "auto");
+    data.fan_mode_override.toLowerCase();
 
     return data;
 }

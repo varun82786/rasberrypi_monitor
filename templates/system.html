@@ -225,6 +225,47 @@
         </div>
       </div>
 
+      <!-- ── Room Temperature ─────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-room"><i data-lucide="thermometer" aria-hidden="true"></i></div>
+          <span class="info-card-title">Room Temperature</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Current</span>
+            <span class="info-row-value" id="val-room-temp">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Updated</span>
+            <span class="info-row-value mono" id="val-room-temp-at">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Fan Control ──────────────────────────────────── -->
+      <div class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon icon-fan"><i data-lucide="fan" aria-hidden="true"></i></div>
+          <span class="info-card-title">SMPS Fan Control</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-row">
+            <span class="info-row-label">Mode</span>
+            <span class="info-row-value" id="val-fan-mode">—</span>
+          </div>
+          <div class="fan-control-row" role="group" aria-label="Fan control mode">
+            <button class="btn btn-sm fan-mode-btn" data-mode="auto" id="btn-fan-auto">Auto</button>
+            <button class="btn btn-sm fan-mode-btn" data-mode="on" id="btn-fan-on">On</button>
+            <button class="btn btn-sm fan-mode-btn" data-mode="off" id="btn-fan-off">Off</button>
+          </div>
+          <div class="info-row" style="padding-top: 10px;">
+            <span class="info-row-label">Status</span>
+            <span class="info-row-value mono" id="val-fan-status">Ready</span>
+          </div>
+        </div>
+      </div>
+
     </section>
 
   </div><!-- /container -->

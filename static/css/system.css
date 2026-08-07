@@ -77,6 +77,8 @@
 .info-card-icon.icon-disk      { background: hsla(215, 70%, 60%, 0.10); color: hsl(215, 70%, 62%); }
 .info-card-icon.icon-network   { background: hsla(270, 60%, 65%, 0.10); color: hsl(270, 60%, 65%); }
 .info-card-icon.icon-app       { background: hsla(340, 65%, 55%, 0.10); color: hsl(340, 65%, 55%); }
+.info-card-icon.icon-room      { background: hsla(12, 85%, 60%, 0.10);  color: hsl(12, 85%, 60%);  }
+.info-card-icon.icon-fan       { background: hsla(180, 70%, 48%, 0.10); color: hsl(180, 70%, 52%); }
 
 .info-card-title {
   font-size: 13px;
@@ -289,4 +291,21 @@
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+}
+
+.fan-control-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fan-mode-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.fan-mode-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px hsla(196, 80%, 52%, 0.45);
 }

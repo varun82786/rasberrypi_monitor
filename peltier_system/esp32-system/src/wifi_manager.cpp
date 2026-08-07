@@ -7,6 +7,7 @@ WebServer server(8080);  // Initialize the web server on port 80
 static unsigned long lastRpiDataMs = 0;
 static bool hasRpiData = false;
 static String lastRpiIp = "";
+static String fanModeOverride = "auto";
 
 void initWiFi(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
@@ -41,6 +42,38 @@ void startWebServer() {
         Serial.println("Data received from Raspberry Pi: " + jsonData);
         Serial.println("RPi source IP: " + lastRpiIp);
         server.send(200, "application/json", "{\"message\": \"Data received successfully!\"}");
+    });
+
+    server.on("/fan-control", HTTP_GET, []() {
+        server.send(
+            200,
+            "application/json",
+            "{\"mode\":\"" + fanModeOverride + "\"}"
+        );
+    });
+
+    server.on("/fan-control", HTTP_POST, []() {
+        String jsonData = server.arg("plain");
+        RpiMetrics incoming = processReceivedData(jsonData);
+        String requestedMode = incoming.fan_mode_override;
+
+        if (requestedMode != "auto" && requestedMode != "on" && requestedMode != "off") {
+            server.send(400, "application/json", "{\"message\":\"Invalid mode\"}");
+            return;
+        }
+
+        fanModeOverride = requestedMode;
+        lastRpiDataMs = millis();
+        hasRpiData = true;
+        lastRpiIp = server.client().remoteIP().toString();
+
+        RpiData.fan_mode_override = fanModeOverride;
+        Serial.println("Fan override mode set to: " + fanModeOverride);
+        server.send(
+            200,
+            "application/json",
+            "{\"message\":\"Fan mode updated\",\"mode\":\"" + fanModeOverride + "\"}"
+        );
     });
 
     server.begin();

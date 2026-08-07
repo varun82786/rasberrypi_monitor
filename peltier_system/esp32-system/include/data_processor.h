@@ -9,6 +9,7 @@ struct RpiMetrics {
     bool night_mode;
     float past_avg_temp;
     float lowest_temp;
+    String fan_mode_override;
 };
 
 // Function to process received data

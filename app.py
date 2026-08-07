@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 from time import time
+from threading import Lock
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -77,6 +78,16 @@ RATE_LIMIT_PERIOD = int(os.getenv('RATE_LIMIT_PERIOD', '60'))
 VALID_FIELDS = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7', 'field8']
 VALID_PERIODS = ['live', '30min', '1hr', '3hrs', '6hrs', '12hrs', '24hrs', '48hrs', '72hrs']
 MAX_RESULTS = 8640  # Maximum data points (24hrs * 60min * 6 points/min)
+
+VALID_FAN_MODES = {'auto', 'on', 'off'}
+ESP32_BASE_URL = os.getenv('ESP32_IP', 'http://192.168.31.74:8080').rstrip('/')
+ESP32_FAN_CONTROL_URL = os.getenv('ESP32_FAN_CONTROL_URL', f'{ESP32_BASE_URL}/fan-control')
+
+# Latest ESP32 room telemetry seen by this web app.
+latest_esp32_room_temp = None
+latest_esp32_room_temp_at = None
+fan_mode_cache = 'auto'
+state_lock = Lock()
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""
@@ -308,7 +319,7 @@ def handle_internal_error(e):
 def index():
     return render_template('index.html')
 
-@app.route('/data')
+@app.route('/data', methods=['GET'])
 @ratelimit()
 def data():
     """Fetch latest 15 data points with enhanced error handling and caching"""
@@ -370,6 +381,97 @@ def data():
             'timestamp': datetime.now().isoformat(),
             'status': 'error'
         }), 500
+
+@app.route('/data', methods=['POST'])
+def receive_esp32_data():
+    """Receive ESP32 telemetry posts without affecting ThingSpeak GET route."""
+    global latest_esp32_room_temp, latest_esp32_room_temp_at
+
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'message': 'Invalid JSON payload'}), 400
+
+        room_temp = data.get('temperature')
+        if room_temp is not None:
+            try:
+                room_temp = float(room_temp)
+                with state_lock:
+                    latest_esp32_room_temp = round(room_temp, 2)
+                    latest_esp32_room_temp_at = datetime.now().isoformat()
+            except (TypeError, ValueError):
+                logger.warning('Ignoring invalid room temperature payload: %s', room_temp)
+
+        logger.info('Data received from ESP32: %s', data)
+        return jsonify({'message': 'Data received successfully!'}), 200
+    except Exception as e:
+        logger.error('Error while receiving ESP32 data: %s', e)
+        return jsonify({'message': 'Failed to receive data'}), 500
+
+
+@app.route('/api/fan-control', methods=['GET', 'POST'])
+@ratelimit(limit=20, period=60)
+def api_fan_control():
+    """Proxy fan mode controls between the UI and ESP32."""
+    global fan_mode_cache
+
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        mode = str(payload.get('mode', '')).strip().lower()
+        if mode not in VALID_FAN_MODES:
+            return jsonify({
+                'error': 'Validation Error',
+                'message': "mode must be one of: auto, on, off"
+            }), 400
+
+        try:
+            response = requests.post(
+                ESP32_FAN_CONTROL_URL,
+                json={'mode': mode},
+                timeout=5,
+                headers={'User-Agent': 'RaspberryPi-Monitor/1.0'}
+            )
+            response.raise_for_status()
+            esp_payload = response.json() if response.content else {}
+
+            with state_lock:
+                fan_mode_cache = esp_payload.get('mode', mode)
+
+            return jsonify({
+                'status': 'ok',
+                'mode': fan_mode_cache,
+                'esp32': esp_payload
+            })
+        except Exception as e:
+            logger.error('Failed to send fan mode to ESP32: %s', e)
+            return jsonify({
+                'status': 'error',
+                'message': 'Unable to reach ESP32 control endpoint'
+            }), 502
+
+    # GET: query live mode if possible, otherwise return cached mode.
+    try:
+        response = requests.get(
+            ESP32_FAN_CONTROL_URL,
+            timeout=5,
+            headers={'User-Agent': 'RaspberryPi-Monitor/1.0'}
+        )
+        response.raise_for_status()
+        esp_payload = response.json() if response.content else {}
+
+        mode = str(esp_payload.get('mode', fan_mode_cache)).strip().lower()
+        if mode not in VALID_FAN_MODES:
+            mode = fan_mode_cache
+
+        with state_lock:
+            fan_mode_cache = mode
+
+        return jsonify({'status': 'ok', 'mode': mode, 'esp32': esp_payload})
+    except Exception as e:
+        logger.warning('Falling back to cached fan mode: %s', e)
+        with state_lock:
+            cached_mode = fan_mode_cache
+        return jsonify({'status': 'degraded', 'mode': cached_mode}), 200
 
 @app.route('/test/graph/<field>')
 def test_graph(field):
@@ -895,6 +997,11 @@ def api_system():
             'api_status': api_status
         }
 
+        with state_lock:
+            room_temp = latest_esp32_room_temp
+            room_temp_at = latest_esp32_room_temp_at
+            fan_mode = fan_mode_cache
+
         system_data = {
             'hostname': platform.node(),
             'os': f"{platform.system()} {platform.release()}",
@@ -906,6 +1013,13 @@ def api_system():
             'disk': disk_info,
             'network': network_info,
             'application': app_info,
+            'room': {
+                'temperature': room_temp,
+                'updated_at': room_temp_at
+            },
+            'fan_control': {
+                'mode': fan_mode
+            },
             'timestamp': datetime.now().isoformat()
         }
 

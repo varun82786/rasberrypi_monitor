@@ -13,6 +13,7 @@
   const lastFetchEl = document.getElementById('last-fetch');
   const refreshBtn  = document.getElementById('refresh-btn');
   const retryBtn    = document.getElementById('retry-btn');
+  const fanModeButtons = Array.prototype.slice.call(document.querySelectorAll('.fan-mode-btn'));
 
   // ── Helpers ───────────────────────────────────────────────
   function formatBytes(bytes) {
@@ -173,6 +174,65 @@
     }
   }
 
+  function renderRoom(data) {
+    var room = data.room || {};
+    if (room.temperature != null) {
+      setText('val-room-temp', Number(room.temperature).toFixed(1) + ' °C');
+    } else {
+      setText('val-room-temp', '—');
+    }
+
+    if (room.updated_at) {
+      var d = new Date(room.updated_at);
+      setText('val-room-temp-at', isNaN(d.getTime()) ? room.updated_at : d.toLocaleTimeString());
+    } else {
+      setText('val-room-temp-at', '—');
+    }
+  }
+
+  function setFanButtonsActive(mode) {
+    fanModeButtons.forEach(function (btn) {
+      var active = btn.getAttribute('data-mode') === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function renderFanControl(data) {
+    var fanControl = data.fan_control || {};
+    var mode = (fanControl.mode || 'auto').toLowerCase();
+    setText('val-fan-mode', mode.toUpperCase());
+    setFanButtonsActive(mode);
+  }
+
+  function setFanStatus(message) {
+    setText('val-fan-status', message);
+  }
+
+  function setFanMode(mode) {
+    setFanStatus('Updating…');
+
+    fetch('/api/fan-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: mode })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (payload) {
+        var appliedMode = (payload.mode || mode || 'auto').toLowerCase();
+        setText('val-fan-mode', appliedMode.toUpperCase());
+        setFanButtonsActive(appliedMode);
+        setFanStatus('Mode set to ' + appliedMode.toUpperCase());
+      })
+      .catch(function (err) {
+        console.error('Fan control update error:', err);
+        setFanStatus('Failed: ' + (err.message || 'network error'));
+      });
+  }
+
   // ── Main fetch ────────────────────────────────────────────
   function fetchSystemInfo() {
     showLoading();
@@ -192,6 +252,8 @@
         renderDisk(data);
         renderNetwork(data);
         renderApp(data);
+        renderRoom(data);
+        renderFanControl(data);
         showContent();
 
         if (lastFetchEl) {
@@ -215,6 +277,14 @@
   if (retryBtn) {
     retryBtn.addEventListener('click', fetchSystemInfo);
   }
+
+  fanModeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var mode = (btn.getAttribute('data-mode') || '').toLowerCase();
+      if (!mode) return;
+      setFanMode(mode);
+    });
+  });
 
   // Initial fetch
   fetchSystemInfo();
