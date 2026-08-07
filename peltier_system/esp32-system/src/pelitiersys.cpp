@@ -53,6 +53,13 @@ Preferences preferences;
 constexpr unsigned long BASELINE_SAVE_INTERVAL_MS = 60000;
 constexpr float BASELINE_ALPHA = 0.02f;
 constexpr float BASELINE_DRIFT_THRESHOLD = 0.5f;
+constexpr unsigned long RPI_DATA_STALE_MS = 45000;
+
+bool remoteDataFresh = false;
+unsigned long lastControlLogMs = 0;
+unsigned long lastStaleLogMs = 0;
+
+void logControlSnapshot(float adaptiveUpper, float adaptiveLower, float cpuTrend);
 
 bool validReading(float value) {
     return !isnan(value) && !isinf(value) && value > -40.0f && value < 150.0f;
@@ -198,6 +205,8 @@ ControlState inferTargetState() {
         ? max(remoteLower, filteredRoomTemp + 2.0f)
         : max(learnedLower, filteredRoomTemp + 2.0f);
 
+    logControlSnapshot(adaptiveUpper, adaptiveLower, cpuTrend);
+
     if (filteredCpuTemp >= adaptiveUpper || CpuUsage >= CPU_USAGE_HIGH || cpuTrend > CPU_TREND_RISING) {
         return ControlState::Cooling;
     }
@@ -237,6 +246,25 @@ void settleState(ControlState targetState) {
     }
 
     setRelaysForState(currentState);
+}
+
+void logControlSnapshot(float adaptiveUpper, float adaptiveLower, float cpuTrend) {
+    const unsigned long now = millis();
+    if (now - lastControlLogMs < 10000) {
+        return;
+    }
+
+    lastControlLogMs = now;
+    Serial.println(
+        String("CTRL state=") + stateName(currentState) +
+        " fresh=" + (remoteDataFresh ? "yes" : "no") +
+        " cpu=" + String(CpuTemp, 1) +
+        " room=" + String(RoomTemp, 1) +
+        " usage=" + String(CpuUsage, 1) +
+        " up=" + String(adaptiveUpper, 1) +
+        " low=" + String(adaptiveLower, 1) +
+        " trend=" + String(cpuTrend, 2)
+    );
 }
 }  // namespace
 
@@ -279,6 +307,24 @@ void loop() {
     nightMode = RpiData.night_mode;
     upper_thresold_temp = RpiData.past_avg_temp;
     lower_thresold_temp = RpiData.lowest_temp;
+
+    remoteDataFresh = hasRecentRpiData(RPI_DATA_STALE_MS);
+    if (!remoteDataFresh) {
+        // Without fresh RPi telemetry, use conservative local fallback values.
+        CpuTemp = RoomTemp + 10.0f;
+        CpuUsage = 0.0f;
+        upper_thresold_temp = RoomTemp + 8.0f;
+        lower_thresold_temp = RoomTemp + 2.0f;
+
+        unsigned long now = millis();
+        if (now - lastStaleLogMs > 15000) {
+            lastStaleLogMs = now;
+            Serial.println(
+                String("RPi data stale for ") + String(millisSinceLastRpiData() / 1000) +
+                "s, using local thermal fallback"
+            );
+        }
+    }
 
     manageCoolingSystem();
 
