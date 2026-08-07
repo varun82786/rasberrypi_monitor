@@ -54,6 +54,7 @@ constexpr unsigned long BASELINE_SAVE_INTERVAL_MS = 60000;
 constexpr float BASELINE_ALPHA = 0.02f;
 constexpr float BASELINE_DRIFT_THRESHOLD = 0.5f;
 constexpr unsigned long RPI_DATA_STALE_MS = 45000;
+constexpr unsigned long STALE_FAILSAFE_MS = 90000;
 
 bool remoteDataFresh = false;
 unsigned long lastControlLogMs = 0;
@@ -171,6 +172,10 @@ void setRelaysForState(ControlState state) {
 
 
 ControlState inferTargetState() {
+    if (!remoteDataFresh && millisSinceLastRpiData() > STALE_FAILSAFE_MS) {
+        return ControlState::Fault;
+    }
+
     if (nightMode) {
         return ControlState::Night;
     }

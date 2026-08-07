@@ -52,7 +52,8 @@ bool hasRecentRpiData(unsigned long maxAgeMs) {
 
 unsigned long millisSinceLastRpiData() {
     if (!hasRpiData) {
-        return 0;
+        // No packet has arrived yet; treat age as time since boot.
+        return millis();
     }
     return millis() - lastRpiDataMs;
 }
