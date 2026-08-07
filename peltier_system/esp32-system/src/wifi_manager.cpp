@@ -8,11 +8,17 @@ WebServer server(8080);  // Initialize the web server on port 80
 void initWiFi(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED) {
+    unsigned long startTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 20000) {
         delay(500);
         Serial.print(".");
     }
-    Serial.println("\nConnected to WiFi");
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nConnected to WiFi");
+    } else {
+        Serial.println("\nWiFi connection timed out");
+    }
 }
 
 void startWebServer() {

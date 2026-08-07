@@ -32,7 +32,7 @@ bool RpiComStatus(float sensValue) {
     dataArray[index_] = sensValue;
     index_ = (index_ + 1) % arraySize;  
 
-    if (index == 0) {
+    if (index_ == 0) {
         arrayFilled = true;
     }
 

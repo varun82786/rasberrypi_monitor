@@ -3,7 +3,7 @@
 RpiMetrics processReceivedData(const String& jsonData) {
     DynamicJsonDocument doc(256);  // Use DynamicJsonDocument
 
-    RpiMetrics data;
+    RpiMetrics data{};
 
     // Parse JSON
     DeserializationError error = deserializeJson(doc, jsonData);
@@ -13,11 +13,11 @@ RpiMetrics processReceivedData(const String& jsonData) {
     }
 
     // Extract values from JSON
-    data.cpu_usage = doc["cpu_usage"];
-    data.cpu_temperature = doc["cpu_temperature"];
-    data.night_mode= doc["night_mode"];
-    data.past_avg_temp = doc["past_avg_temp"];
-    data.lowest_temp = doc["lowest_temp"];
+    data.cpu_usage = doc["cpu_usage"] | 0.0f;
+    data.cpu_temperature = doc["cpu_temperature"] | 0.0f;
+    data.night_mode = doc["night_mode"] | false;
+    data.past_avg_temp = doc["past_avg_temp"] | 0.0f;
+    data.lowest_temp = doc["lowest_temp"] | 0.0f;
 
     return data;
 }

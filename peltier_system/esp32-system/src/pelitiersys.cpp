@@ -48,12 +48,19 @@ void loop() {
     // Handle client requests
     server.handleClient();
 
-    // Check night mode and control SMPS and fans accordingly
+    // Read sensor data first so the control logic uses fresh values.
+    RoomTemp = serverroom.readTemperature();
+    RoomHumid = serverroom.readHumidity();
+    CpuTemp = RpiData.cpu_temperature;
+    CpuUsage = RpiData.cpu_usage;
+    nightMode = RpiData.night_mode;
+    upper_thresold_temp = RpiData.past_avg_temp;
+    lower_thresold_temp = RpiData.lowest_temp;
 
-    if (!nightMode) {
+    if (nightMode) {
         activateNightMode();
     } else {
-        activateNightMode();
+        manageCoolingSystem();
     }
 
     // Send data to Raspberry Pi periodically
@@ -63,15 +70,6 @@ void loop() {
 
     // Update SMPS and fan timers
     updateSMPSStatus();
-
-    // Read sensor data
-    RoomTemp = serverroom.readTemperature();
-    RoomHumid = serverroom.readHumidity();
-    CpuTemp = RpiData.cpu_temperature;
-    CpuUsage = RpiData.cpu_usage;
-    nightMode = RpiData.night_mode;
-    upper_thresold_temp = RpiData.past_avg_temp;
-    lower_thresold_temp = RpiData.lowest_temp;
 
     sys_uptime++;
     delay(oneSecond);

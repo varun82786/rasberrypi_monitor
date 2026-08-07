@@ -2,12 +2,13 @@
 #include <Arduino.h>  // Include necessary for Arduino functions
 
 // Constructor to initialize the relay pin
-Relay::Relay(unsigned char relayPin) : pin(relayPin) {}
+Relay::Relay(unsigned char relayPin) : pin(relayPin), Relay_State(false) {}
 
 // Initialize the relay (set pin mode)
 void Relay::init() {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);  // Start with relay off
+    Relay_State = false;
 }
 
 // Turn relay on
