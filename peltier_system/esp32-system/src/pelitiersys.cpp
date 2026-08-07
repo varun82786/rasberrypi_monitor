@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <math.h>
+#include <Preferences.h>
 #include "operations.h"
 #include "Relay.h"
 #include "dhtsensor.h"
@@ -20,8 +22,228 @@ Relay SMPS_FAN(SMPS_FAN_PIN);
 Relay RPI_FAN(RPI_FAN_PIN);
 Relay PELTIER(PELTIER_PIN);
 
+namespace {
+enum class ControlState {
+    Boot,
+    Idle,
+    Cooling,
+    Night,
+    Fault,
+};
+
+constexpr unsigned long STATE_HOLD_MS = 5000;
+constexpr float CPU_USAGE_HIGH = 75.0f;
+constexpr float CPU_USAGE_RECOVER = 45.0f;
+constexpr float CPU_TREND_RISING = 2.0f;
+constexpr float CPU_TREND_FALLING = 0.2f;
+
+ControlState currentState = ControlState::Boot;
+ControlState pendingState = ControlState::Boot;
+unsigned long pendingSinceMs = 0;
+bool filterInitialized = false;
+float filteredCpuTemp = 0.0f;
+float filteredRoomTemp = 0.0f;
+float learnedCpuBaseline = 0.0f;
+float learnedRoomBaseline = 0.0f;
+bool baselineLoaded = false;
+bool baselineDirty = false;
+unsigned long lastBaselineSaveMs = 0;
+Preferences preferences;
+
+constexpr unsigned long BASELINE_SAVE_INTERVAL_MS = 60000;
+constexpr float BASELINE_ALPHA = 0.02f;
+constexpr float BASELINE_DRIFT_THRESHOLD = 0.5f;
+
+bool validReading(float value) {
+    return !isnan(value) && !isinf(value) && value > -40.0f && value < 150.0f;
+}
+
+const char* stateName(ControlState state) {
+    switch (state) {
+        case ControlState::Boot: return "boot";
+        case ControlState::Idle: return "idle";
+        case ControlState::Cooling: return "cooling";
+        case ControlState::Night: return "night";
+        case ControlState::Fault: return "fault";
+    }
+    return "unknown";
+}
+
+void setRelaysForState(ControlState state) {
+    switch (state) {
+        case ControlState::Cooling:
+            SMPS.on();
+            RPI_FAN.on();
+            SMPS_FAN.on();
+            PELTIER.off();
+            break;
+        case ControlState::Night:
+            SMPS.on();
+            RPI_FAN.on();
+            SMPS_FAN.on();
+            PELTIER.off();
+            break;
+        case ControlState::Fault:
+            SMPS.on();
+            RPI_FAN.on();
+            SMPS_FAN.on();
+            PELTIER.off();
+            break;
+        case ControlState::Idle:
+        case ControlState::Boot:
+        default:
+            RPI_FAN.off();
+            SMPS_FAN.off();
+            SMPS.off();
+            PELTIER.off();
+            break;
+    }
+}
+    void loadLearningBaseline() {
+        // Open in RW mode so first boot can create the namespace without warnings.
+        preferences.begin("rpi-monitor", false);
+        learnedCpuBaseline = preferences.getFloat("cpu_base", 0.0f);
+        learnedRoomBaseline = preferences.getFloat("room_base", 0.0f);
+        preferences.end();
+
+        if (learnedCpuBaseline > 0.0f || learnedRoomBaseline > 0.0f) {
+            baselineLoaded = true;
+        }
+    }
+
+    void saveLearningBaseline(bool force = false) {
+        const unsigned long now = millis();
+        if (!force && (!baselineDirty || now - lastBaselineSaveMs < BASELINE_SAVE_INTERVAL_MS)) {
+            return;
+        }
+
+        preferences.begin("rpi-monitor", false);
+        preferences.putFloat("cpu_base", learnedCpuBaseline);
+        preferences.putFloat("room_base", learnedRoomBaseline);
+        preferences.end();
+
+        baselineDirty = false;
+        lastBaselineSaveMs = now;
+        Serial.println("Saved learned temperature baseline");
+    }
+
+    void updateLearningBaseline() {
+        if (!validReading(CpuTemp) || !validReading(RoomTemp)) {
+            return;
+        }
+
+        if (!baselineLoaded) {
+            learnedCpuBaseline = CpuTemp;
+            learnedRoomBaseline = RoomTemp;
+            baselineLoaded = true;
+            baselineDirty = true;
+            return;
+        }
+
+        // Learn only during stable non-cooling operation to avoid threshold runaway.
+        const bool stableIdleSample =
+            currentState == ControlState::Idle &&
+            CpuUsage < CPU_USAGE_RECOVER &&
+            CpuTemp < (upper_thresold_temp + 2.0f);
+
+        if (!stableIdleSample) {
+            return;
+        }
+
+        const float previousCpuBaseline = learnedCpuBaseline;
+        const float previousRoomBaseline = learnedRoomBaseline;
+
+        learnedCpuBaseline = (learnedCpuBaseline * (1.0f - BASELINE_ALPHA)) + (CpuTemp * BASELINE_ALPHA);
+        learnedRoomBaseline = (learnedRoomBaseline * (1.0f - BASELINE_ALPHA)) + (RoomTemp * BASELINE_ALPHA);
+
+        if (fabsf(learnedCpuBaseline - previousCpuBaseline) > BASELINE_DRIFT_THRESHOLD ||
+            fabsf(learnedRoomBaseline - previousRoomBaseline) > BASELINE_DRIFT_THRESHOLD) {
+            baselineDirty = true;
+        }
+    }
+
+
+ControlState inferTargetState() {
+    if (nightMode) {
+        return ControlState::Night;
+    }
+
+    if (!validReading(CpuTemp) || !validReading(RoomTemp) || !validReading(CpuUsage)) {
+        return ControlState::Fault;
+    }
+
+    if (!filterInitialized) {
+        filteredCpuTemp = CpuTemp;
+        filteredRoomTemp = RoomTemp;
+        filterInitialized = true;
+    }
+
+    const float previousFilteredCpuTemp = filteredCpuTemp;
+    filteredCpuTemp = (filteredCpuTemp * 0.8f) + (CpuTemp * 0.2f);
+    filteredRoomTemp = (filteredRoomTemp * 0.8f) + (RoomTemp * 0.2f);
+    updateLearningBaseline();
+
+    const float cpuTrend = filteredCpuTemp - previousFilteredCpuTemp;
+    const bool remoteThresholdsValid = upper_thresold_temp > 1.0f && lower_thresold_temp > 1.0f;
+    const float remoteUpper = remoteThresholdsValid ? upper_thresold_temp + 5.0f : 0.0f;
+    const float remoteLower = remoteThresholdsValid ? lower_thresold_temp + 1.5f : 0.0f;
+    const float learnedUpper = learnedCpuBaseline > 0.0f ? learnedCpuBaseline + 8.0f : 0.0f;
+    const float learnedLower = learnedRoomBaseline > 0.0f ? learnedRoomBaseline + 2.0f : 0.0f;
+
+    const float adaptiveUpper = remoteThresholdsValid
+        ? max(remoteUpper, filteredRoomTemp + 6.0f)
+        : max(learnedUpper, filteredRoomTemp + 6.0f);
+
+    const float adaptiveLower = remoteThresholdsValid
+        ? max(remoteLower, filteredRoomTemp + 2.0f)
+        : max(learnedLower, filteredRoomTemp + 2.0f);
+
+    if (filteredCpuTemp >= adaptiveUpper || CpuUsage >= CPU_USAGE_HIGH || cpuTrend > CPU_TREND_RISING) {
+        return ControlState::Cooling;
+    }
+
+    if (filteredCpuTemp <= adaptiveLower - 2.0f && CpuUsage < CPU_USAGE_RECOVER && cpuTrend <= CPU_TREND_FALLING) {
+        return ControlState::Idle;
+    }
+
+    return currentState == ControlState::Boot ? ControlState::Idle : currentState;
+}
+
+void settleState(ControlState targetState) {
+    const unsigned long now = millis();
+
+    if (currentState == ControlState::Boot) {
+        currentState = targetState;
+        pendingState = targetState;
+        pendingSinceMs = now;
+        Serial.println(String("Control state -> ") + stateName(currentState));
+        setRelaysForState(currentState);
+        return;
+    }
+
+    if (targetState != currentState) {
+        if (pendingState != targetState) {
+            pendingState = targetState;
+            pendingSinceMs = now;
+        } else if (now - pendingSinceMs >= STATE_HOLD_MS) {
+            currentState = targetState;
+            pendingState = currentState;
+            pendingSinceMs = now;
+            Serial.println(String("Control state -> ") + stateName(currentState));
+        }
+    } else {
+        pendingState = currentState;
+        pendingSinceMs = now;
+    }
+
+    setRelaysForState(currentState);
+}
+}  // namespace
+
 void setup() {
     Serial.begin(115200);
+
+    loadLearningBaseline();
     
     // Initialize sensors and relays
     serverroom.init();
@@ -42,6 +264,7 @@ void setup() {
     
     delay(tenSeconds);
     SMPS_FAN.off();  // Turn off the SMPS fan after initial delay
+    saveLearningBaseline(true);
 }
 
 void loop() {
@@ -57,11 +280,7 @@ void loop() {
     upper_thresold_temp = RpiData.past_avg_temp;
     lower_thresold_temp = RpiData.lowest_temp;
 
-    if (nightMode) {
-        activateNightMode();
-    } else {
-        manageCoolingSystem();
-    }
+    manageCoolingSystem();
 
     // Send data to Raspberry Pi periodically
     if (sys_uptime % 30 == 0) {
@@ -71,35 +290,20 @@ void loop() {
     // Update SMPS and fan timers
     updateSMPSStatus();
 
+    saveLearningBaseline();
+
     sys_uptime++;
     delay(oneSecond);
 }
 
 // Manage cooling system based on CPU temperature and usage
 void manageCoolingSystem() {
-    if (CpuTemp > (upper_thresold_temp + 5.0) || CpuUsage >= 50) {
-        if (!SMPS.Status()) {
-            SMPS.on();
-        }
-        if (!RPI_FAN.Status()) {
-            RPI_FAN.on();
-            
-        }
-        SMPS_FAN.on();
-    } else if (CpuTemp < (lower_thresold_temp - 5.0)) {
-        RPI_FAN.off();
-        delay(3 * tenSeconds);
-        SMPS_FAN.off();
-        SMPS.off();
-    }
+    settleState(inferTargetState());
 }
 
 // Activate night mode: keeps all systems running
 void activateNightMode() {
-    SMPS.on();
-    RPI_FAN.on();
-    SMPS_FAN.on();
-    Serial.println("Night Mode activated");
+    settleState(ControlState::Night);
 }
 
 // Update SMPS and fan status and timers

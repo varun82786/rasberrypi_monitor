@@ -1,7 +1,7 @@
 #include "data_processor.h"
 
 RpiMetrics processReceivedData(const String& jsonData) {
-    DynamicJsonDocument doc(256);  // Use DynamicJsonDocument
+    JsonDocument doc;
 
     RpiMetrics data{};
 
