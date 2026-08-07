@@ -4,12 +4,15 @@ import requests
 import os
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler  # For scheduling periodic checks
+from dotenv import load_dotenv
+
+load_dotenv()
 
 #user def modules
 from operations import *
 from ESP32Ops import *
 
-check_interval = 15  # Check conditions every 30 seconds
+check_interval = int(os.getenv("RPI_CHECK_INTERVAL", "15"))
 
 app = Flask(__name__)
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
@@ -46,11 +49,13 @@ def start_scheduler():
     
 
 if __name__ == "__main__":
+    host = os.getenv("RPI_SERVER_HOST", "0.0.0.0")
+    port = int(os.getenv("RPI_SERVER_PORT", "5000"))
+    logger.info("RPi config: host=%s port=%s interval=%ss esp32=%s", host, port, check_interval, ESP32_IP)
+
     # Start the scheduler for periodic checks
     start_scheduler()
 
     # Run the Flask app
-    host = os.getenv("RPI_SERVER_HOST", "0.0.0.0")
-    port = int(os.getenv("RPI_SERVER_PORT", "5000"))
     logger.info("Starting RPi server at %s:%s", host, port)
     app.run(host=host, port=port)

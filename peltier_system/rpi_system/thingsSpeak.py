@@ -1,10 +1,14 @@
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ThingSpeak API details
-WRITE_API_KEY = 'O8W78TIS52FE3FP2'
-THINGSPEAK_URL = 'https://api.thingspeak.com/update'
-READ_API_KEY = 'H0USM137GRY8Y3IA'
-CHANNEL_ID = '2662777'
+WRITE_API_KEY = os.getenv('THINGSPEAK_WRITE_API_KEY', 'O8W78TIS52FE3FP2')
+THINGSPEAK_URL = os.getenv('THINGSPEAK_URL', 'https://api.thingspeak.com/update')
+READ_API_KEY = os.getenv('THINGSPEAK_READ_API_KEY', 'H0USM137GRY8Y3IA')
+CHANNEL_ID = os.getenv('THINGSPEAK_CHANNEL_ID', '2662777')
 
 # Function to post data to ThingSpeak
 def post_to_thingspeak(cpu_temp, gpu_temp, cpu_usage, mem_usage, disk_usage, bytes_sent, bytes_recv, uptime):

@@ -5,6 +5,9 @@ import time
 import os
 import logging
 import schedule  # For scheduling periodic checks
+from dotenv import load_dotenv
+
+load_dotenv()
 
 #user def modules
 from operations import *
@@ -18,7 +21,7 @@ ESP32_IP = os.getenv("ESP32_IP", "http://192.168.31.74:8080")
 
 cpu_usage_threshold = 10  # CPU usage threshold to trigger communication
 cpu_temp_threshold = 34
-check_interval = 5  # Check conditions every 5 seconds
+check_interval = int(os.getenv("RPI_CHECK_INTERVAL", "5"))
 
 # will implement in seperate file later
 def get_cpu_usage():
@@ -94,6 +97,7 @@ if __name__ == "__main__":
     from threading import Thread
     host = os.getenv("RPI_SERVER_HOST", "0.0.0.0")
     port = int(os.getenv("RPI_SERVER_PORT", "5000"))
+    logger.info("RPi config: host=%s port=%s interval=%ss esp32=%s", host, port, check_interval, ESP32_IP)
     logger.info("Starting RPi server at %s:%s", host, port)
     flask_thread = Thread(target=lambda: app.run(host=host, port=port))
     flask_thread.daemon = True
