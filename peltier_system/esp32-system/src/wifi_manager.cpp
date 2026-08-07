@@ -18,6 +18,7 @@ void initWiFi(const char* ssid, const char* password) {
 
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("\nConnected to WiFi");
+        Serial.println("ESP32 IP: " + WiFi.localIP().toString());
     } else {
         Serial.println("\nWiFi connection timed out");
     }
