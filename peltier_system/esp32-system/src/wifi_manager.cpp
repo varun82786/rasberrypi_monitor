@@ -34,7 +34,10 @@ void startWebServer() {
 
     server.on("/data", HTTP_POST, []() {
         String jsonData = server.arg("plain"); // Get the JSON data from Raspberry Pi
-        RpiData = processReceivedData(jsonData);  // Parse JSON and store data in global variable
+        RpiMetrics parsed = processReceivedData(jsonData);  // Parse JSON and store data in global variable
+        // Keep manual fan override sticky unless /fan-control explicitly changes it.
+        parsed.fan_mode_override = fanModeOverride;
+        RpiData = parsed;
         lastRpiDataMs = millis();
         hasRpiData = true;
         lastRpiIp = server.client().remoteIP().toString();

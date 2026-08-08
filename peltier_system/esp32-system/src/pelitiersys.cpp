@@ -78,22 +78,6 @@ const char* stateName(ControlState state) {
 }
 
 void setRelaysForState(ControlState state) {
-    if (RpiData.fan_mode_override == "on") {
-        SMPS.on();
-        RPI_FAN.off();
-        PELTIER.off();
-        SMPS_FAN.on();
-        return;
-    }
-
-    if (RpiData.fan_mode_override == "off") {
-        RPI_FAN.off();
-        SMPS_FAN.off();
-        SMPS.off();
-        PELTIER.off();
-        return;
-    }
-
     switch (state) {
         case ControlState::Cooling:
             SMPS.on();
@@ -121,6 +105,18 @@ void setRelaysForState(ControlState state) {
             SMPS.off();
             PELTIER.off();
             break;
+    }
+
+    // UI override must control only the SMPS fan relay.
+    if (RpiData.fan_mode_override == "on") {
+        SMPS_FAN.on();
+    } else if (RpiData.fan_mode_override == "off") {
+        SMPS_FAN.off();
+    }
+
+    // Safety interlock: SMPS fan must remain off when SMPS is off.
+    if (!SMPS.Status()) {
+        SMPS_FAN.off();
     }
 }
     void loadLearningBaseline() {
@@ -366,16 +362,6 @@ void loop() {
 
 // Manage cooling system based on CPU temperature and usage
 void manageCoolingSystem() {
-    if (RpiData.fan_mode_override == "on") {
-        settleState(ControlState::Cooling);
-        return;
-    }
-
-    if (RpiData.fan_mode_override == "off") {
-        settleState(ControlState::Idle);
-        return;
-    }
-
     settleState(inferTargetState());
 }
 
