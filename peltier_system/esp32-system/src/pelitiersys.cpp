@@ -100,7 +100,12 @@ void setRelaysForState(ControlState state) {
         case ControlState::Idle:
         case ControlState::Boot:
         default:
-            RPI_FAN.off();
+            // Keep server fan on if SERVER_FAN_ALWAYS_ON flag is set
+            if (SERVER_FAN_ALWAYS_ON) {
+                RPI_FAN.on();
+            } else {
+                RPI_FAN.off();
+            }
             SMPS_FAN.off();
             SMPS.off();
             PELTIER.off();

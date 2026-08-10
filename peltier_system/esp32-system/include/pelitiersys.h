@@ -19,6 +19,7 @@ bool SMPS_Status = OFF;
 bool DHT_Status = OFF;
 bool nightMode = false;
 bool ComError = true;  // Communication error flag
+bool SERVER_FAN_ALWAYS_ON = true;  // Keep RPI_FAN on forever when true
 
 // Sensor and Communication Variables
 float sensorData = 25.0;
